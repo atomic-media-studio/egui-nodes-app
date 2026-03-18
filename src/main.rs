@@ -3,8 +3,8 @@ use egui_phosphor::regular;
 use egui_snarl::{
     InPin, InPinId, OutPin, OutPinId, Snarl,
     ui::{
-        BackgroundPattern, Grid, NodeLayout, NodeLayoutKind, PinInfo, PinPlacement, PinShape,
-        SnarlStyle, SnarlViewer, SnarlWidget, WireLayer, WireStyle,
+        BackgroundPattern, Grid, NodeLayout, PinInfo, PinPlacement, PinShape,
+        SelectionStyle, SnarlStyle, SnarlViewer, SnarlWidget, WireLayer, WireStyle,
     },
 };
 
@@ -217,6 +217,42 @@ fn default_snarl_style() -> SnarlStyle {
     }
 }
 
+fn edit_margin(ui: &mut egui::Ui, label: &str, margin: &mut egui::Margin) {
+    ui.label(label);
+    ui.horizontal(|ui| {
+        ui.label("L");
+        ui.add(egui::DragValue::new(&mut margin.left).speed(0.25).range(-64..=64));
+        ui.label("R");
+        ui.add(
+            egui::DragValue::new(&mut margin.right)
+                .speed(0.25)
+                .range(-64..=64),
+        );
+        ui.label("T");
+        ui.add(egui::DragValue::new(&mut margin.top).speed(0.25).range(-64..=64));
+        ui.label("B");
+        ui.add(
+            egui::DragValue::new(&mut margin.bottom)
+                .speed(0.25)
+                .range(-64..=64),
+        );
+    });
+}
+
+fn edit_corner_radius(ui: &mut egui::Ui, label: &str, radius: &mut egui::CornerRadius) {
+    ui.label(label);
+    ui.horizontal(|ui| {
+        ui.label("NW");
+        ui.add(egui::DragValue::new(&mut radius.nw).range(0..=64));
+        ui.label("NE");
+        ui.add(egui::DragValue::new(&mut radius.ne).range(0..=64));
+        ui.label("SW");
+        ui.add(egui::DragValue::new(&mut radius.sw).range(0..=64));
+        ui.label("SE");
+        ui.add(egui::DragValue::new(&mut radius.se).range(0..=64));
+    });
+}
+
 fn style_controls_ui(ui: &mut egui::Ui, style: &mut SnarlStyle) {
     ui.heading("Graph style");
     if ui.button("Reset to defaults").clicked() {
@@ -226,46 +262,17 @@ fn style_controls_ui(ui: &mut egui::Ui, style: &mut SnarlStyle) {
 
     ui.collapsing("Node layout", |ui| {
         let mut layout = style.node_layout.unwrap_or(NodeLayout::coil());
-        egui::ComboBox::from_label("Layout kind")
-            .selected_text(match layout.kind {
-                NodeLayoutKind::Coil => "Coil",
-                NodeLayoutKind::Sandwich => "Sandwich",
-                NodeLayoutKind::FlippedSandwich => "FlippedSandwich",
-            })
-            .show_ui(ui, |ui| {
-                ui.selectable_value(&mut layout.kind, NodeLayoutKind::Coil, "Coil");
-                ui.selectable_value(&mut layout.kind, NodeLayoutKind::Sandwich, "Sandwich");
-                ui.selectable_value(
-                    &mut layout.kind,
-                    NodeLayoutKind::FlippedSandwich,
-                    "FlippedSandwich",
-                );
-            });
         ui.add(egui::Slider::new(&mut layout.min_pin_row_height, 0.0..=60.0).text("Min pin row"));
-        ui.checkbox(&mut layout.equal_pin_row_heights, "Equal pin row heights");
         style.node_layout = Some(layout);
         ui.checkbox(style.collapsible.get_or_insert(true), "Collapsible nodes");
+        let header_drag_space = style.header_drag_space.get_or_insert(egui::vec2(16.0, 16.0));
+        ui.add(egui::Slider::new(&mut header_drag_space.x, 0.0..=120.0).text("Header drag X"));
+        ui.add(egui::Slider::new(&mut header_drag_space.y, 0.0..=120.0).text("Header drag Y"));
     });
 
     ui.separator();
     ui.collapsing("Pins", |ui| {
         ui.add(egui::Slider::new(style.pin_size.get_or_insert(8.0), 2.0..=24.0).text("Pin size"));
-
-        let mut pin_shape = style.pin_shape.unwrap_or(PinShape::Circle);
-        egui::ComboBox::from_label("Pin shape")
-            .selected_text(match pin_shape {
-                PinShape::Circle => "Circle",
-                PinShape::Triangle => "Triangle",
-                PinShape::Square => "Square",
-                PinShape::Star => "Star",
-            })
-            .show_ui(ui, |ui| {
-                ui.selectable_value(&mut pin_shape, PinShape::Circle, "Circle");
-                ui.selectable_value(&mut pin_shape, PinShape::Triangle, "Triangle");
-                ui.selectable_value(&mut pin_shape, PinShape::Square, "Square");
-                ui.selectable_value(&mut pin_shape, PinShape::Star, "Star");
-            });
-        style.pin_shape = Some(pin_shape);
 
         let mut outside_margin = 8.0;
         let mut placement_kind = match style.pin_placement.unwrap_or(PinPlacement::Edge) {
@@ -416,22 +423,60 @@ fn style_controls_ui(ui: &mut egui::Ui, style: &mut SnarlStyle) {
             ui.color_edit_button_srgba(&mut bg_stroke.color);
         });
 
-        let node_frame = style
-            .node_frame
-            .get_or_insert_with(|| egui::Frame::window(ui.style()));
-        ui.horizontal(|ui| {
-            ui.label("Node fill");
-            ui.color_edit_button_srgba(&mut node_frame.fill);
+        ui.collapsing("Node frame", |ui| {
+            let node_frame = style
+                .node_frame
+                .get_or_insert_with(|| egui::Frame::window(ui.style()));
+            ui.horizontal(|ui| {
+                ui.label("Fill");
+                ui.color_edit_button_srgba(&mut node_frame.fill);
+            });
+            ui.add(egui::Slider::new(&mut node_frame.stroke.width, 0.0..=8.0).text("Stroke width"));
+            ui.horizontal(|ui| {
+                ui.label("Stroke color");
+                ui.color_edit_button_srgba(&mut node_frame.stroke.color);
+            });
+            edit_corner_radius(ui, "Corner radius", &mut node_frame.corner_radius);
+            edit_margin(ui, "Inner margin", &mut node_frame.inner_margin);
+            edit_margin(ui, "Outer margin", &mut node_frame.outer_margin);
         });
 
-        let header_frame = style.header_frame.get_or_insert_with(|| {
-            let mut f = egui::Frame::window(ui.style());
-            f.shadow = egui::epaint::Shadow::NONE;
-            f
+        ui.collapsing("Header frame", |ui| {
+            let header_frame = style.header_frame.get_or_insert_with(|| {
+                let mut f = egui::Frame::window(ui.style());
+                f.shadow = egui::epaint::Shadow::NONE;
+                f
+            });
+            ui.horizontal(|ui| {
+                ui.label("Fill");
+                ui.color_edit_button_srgba(&mut header_frame.fill);
+            });
+            ui.add(
+                egui::Slider::new(&mut header_frame.stroke.width, 0.0..=8.0).text("Stroke width"),
+            );
+            ui.horizontal(|ui| {
+                ui.label("Stroke color");
+                ui.color_edit_button_srgba(&mut header_frame.stroke.color);
+            });
+            edit_corner_radius(ui, "Corner radius", &mut header_frame.corner_radius);
+            edit_margin(ui, "Inner margin", &mut header_frame.inner_margin);
+            edit_margin(ui, "Outer margin", &mut header_frame.outer_margin);
         });
-        ui.horizontal(|ui| {
-            ui.label("Header fill");
-            ui.color_edit_button_srgba(&mut header_frame.fill);
+
+        ui.collapsing("Background frame", |ui| {
+            let bg_frame = style.bg_frame.get_or_insert_with(|| egui::Frame::canvas(ui.style()));
+            ui.horizontal(|ui| {
+                ui.label("Fill");
+                ui.color_edit_button_srgba(&mut bg_frame.fill);
+            });
+            ui.add(egui::Slider::new(&mut bg_frame.stroke.width, 0.0..=8.0).text("Stroke width"));
+            ui.horizontal(|ui| {
+                ui.label("Stroke color");
+                ui.color_edit_button_srgba(&mut bg_frame.stroke.color);
+            });
+            edit_corner_radius(ui, "Corner radius", &mut bg_frame.corner_radius);
+            edit_margin(ui, "Inner margin", &mut bg_frame.inner_margin);
+            edit_margin(ui, "Outer margin", &mut bg_frame.outer_margin);
         });
     });
 
@@ -453,5 +498,48 @@ fn style_controls_ui(ui: &mut egui::Ui, style: &mut SnarlStyle) {
             style.crisp_magnified_text.get_or_insert(false),
             "Crisp magnified text",
         );
+    });
+
+    ui.separator();
+    ui.collapsing("Selection", |ui| {
+        let select_stroke = style
+            .select_stoke
+            .get_or_insert(egui::Stroke::new(1.0, egui::Color32::from_rgb(80, 160, 255)));
+        ui.add(egui::Slider::new(&mut select_stroke.width, 0.0..=8.0).text("Stroke width"));
+        ui.horizontal(|ui| {
+            ui.label("Stroke color");
+            ui.color_edit_button_srgba(&mut select_stroke.color);
+        });
+
+        ui.horizontal(|ui| {
+            ui.label("Fill");
+            let fill = style
+                .select_fill
+                .get_or_insert(egui::Color32::from_rgba_unmultiplied(80, 160, 255, 48));
+            ui.color_edit_button_srgba(fill);
+        });
+
+        let select_style = style.select_style.get_or_insert(SelectionStyle {
+            margin: ui.spacing().window_margin,
+            rounding: ui.visuals().window_corner_radius,
+            fill: style.select_fill.unwrap_or(egui::Color32::from_rgba_unmultiplied(
+                80, 160, 255, 48,
+            )),
+            stroke: style.select_stoke.unwrap_or(egui::Stroke::new(
+                1.0,
+                egui::Color32::from_rgb(80, 160, 255),
+            )),
+        });
+        ui.horizontal(|ui| {
+            ui.label("Style fill");
+            ui.color_edit_button_srgba(&mut select_style.fill);
+        });
+        ui.add(egui::Slider::new(&mut select_style.stroke.width, 0.0..=8.0).text("Style stroke"));
+        ui.horizontal(|ui| {
+            ui.label("Style stroke color");
+            ui.color_edit_button_srgba(&mut select_style.stroke.color);
+        });
+        edit_corner_radius(ui, "Selection rounding", &mut select_style.rounding);
+        edit_margin(ui, "Selection margin", &mut select_style.margin);
     });
 }
