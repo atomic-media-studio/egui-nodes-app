@@ -1,15 +1,31 @@
-//! Bridges [`core_graph::Graph`] and [`NodeGraph`](crate::ui::nodes_engine::NodeGraph): bidirectional
+//! Bridges [`dag_lib::Graph`] and [`NodeGraph`](crate::ui::nodes_engine::NodeGraph): bidirectional
 //! id mapping, wire sync, and [`GraphChanges`] so evaluation runs only when something changed.
+//!
+//! This layer stays in **egui-nodes** (not **dag-lib**): it maps slab canvas indices ↔ [`PinId`]
+//! and merges the two wire sets. Pure topology and DAG checks live in [`dag_lib`].
 
 pub mod shell_viewer;
 
 use std::collections::{HashMap, HashSet};
 use std::fmt;
 
-use core_graph::{Graph, GraphError, Layout2d, LinkId, NodeId, PinId};
+use egui::Pos2;
 
-use crate::layout_bridge::{layout_to_pos2, pos2_to_layout};
+use dag_lib::{Graph, GraphError, Layout2d, LinkId, NodeId, PinId};
+
 use crate::ui::nodes_engine::{InPinId, NodeId as ViewNodeId, OutPinId, NodeGraph};
+
+/// Converts [`Layout2d`] to egui [`Pos2`] (node position on the canvas).
+#[inline]
+pub fn layout_to_pos2(layout: Layout2d) -> Pos2 {
+    Pos2::new(layout.x, layout.y)
+}
+
+/// Converts egui [`Pos2`] back to [`Layout2d`].
+#[inline]
+pub fn pos2_to_layout(pos: Pos2) -> Layout2d {
+    Layout2d::new(pos.x, pos.y)
+}
 
 /// Payload stored in each NodeGraph cell — ties slab node back to [`NodeId`] and holds user `N`.
 #[derive(Clone, Debug)]
@@ -20,13 +36,13 @@ pub struct NodeData<N> {
 
 /// Accumulated edits since the last [`NodesEditor::take_graph_changes`].
 ///
-/// Use this to drive [`core_graph::Executor::recompute_topology`] / evaluation only when something
+/// Use this to drive [`dag_lib::Executor::recompute_topology`] / evaluation only when something
 /// actually changed, instead of every frame.
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
 pub struct GraphChanges {
     /// Node/link connectivity changed (add/remove wire or node).
     pub topology_changed: bool,
-    /// Node payload, [`core_graph::Layout2d`], or collapse state changed (NodeGraph ↔ graph sync).
+    /// Node payload, [`dag_lib::Layout2d`], or collapse state changed (NodeGraph ↔ graph sync).
     pub payload_or_layout_changed: bool,
 }
 
@@ -74,8 +90,8 @@ impl From<GraphError> for NodesEditorError {
 /// Owns the headless [`Graph`] and the [`NodeGraph`] view; maps [`NodeId`] ↔ [`ViewNodeId`].
 ///
 /// After [`crate::NodesView::show`](crate::ui::view::NodesView::show), call [`Self::take_graph_changes`]
-/// once to see whether topology or payloads changed — then refresh a [`core_graph::Executor`] only when
-/// needed (e.g. [`GraphChanges::topology_changed`] ⇒ [`core_graph::Executor::recompute_topology`]).
+/// once to see whether topology or payloads changed — then refresh a [`dag_lib::Executor`] only when
+/// needed (e.g. [`GraphChanges::topology_changed`] ⇒ [`dag_lib::Executor::recompute_topology`]).
 pub struct NodesEditor<N, E> {
     pub graph: Graph<N, E>,
     pub node_graph: NodeGraph<NodeData<N>>,

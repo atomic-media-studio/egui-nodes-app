@@ -19,7 +19,7 @@ use egui_nodes::{
 
 fn main() -> eframe::Result<()> {
     let options = eframe::NativeOptions {
-        viewport: egui::ViewportBuilder::default().with_inner_size([960.0, 640.0]),
+        viewport: egui::ViewportBuilder::default().with_inner_size([1280.0, 720.0]),
         persist_window: true,
         ..Default::default()
     };
@@ -44,15 +44,11 @@ enum DemoNode {
 
 struct DemoViewer {
     editor: Rc<RefCell<NodesEditor<DemoNode, ()>>>,
-    initial_zoom_pending: bool,
 }
 
 impl DemoViewer {
     fn new(editor: Rc<RefCell<NodesEditor<DemoNode, ()>>>) -> Self {
-        Self {
-            editor,
-            initial_zoom_pending: true,
-        }
+        Self { editor }
     }
 }
 
@@ -143,13 +139,9 @@ impl NodeGraphViewer<NodeData<DemoNode>> for DemoViewer {
 
     fn current_transform(
         &mut self,
-        to_global: &mut egui::emath::TSTransform,
+        _to_global: &mut egui::emath::TSTransform,
         _node_graph: &mut NodeGraph<NodeData<DemoNode>>,
     ) {
-        if self.initial_zoom_pending && to_global.scaling > 0.0 {
-            to_global.scaling *= 0.85;
-            self.initial_zoom_pending = false;
-        }
     }
 }
 

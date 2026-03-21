@@ -20,8 +20,8 @@ pub fn default_canvas_style() -> CanvasStyle {
         wire_style: Some(WireStyle::Bezier5),
         wire_layer: Some(WireLayer::BehindNodes),
         bg_pattern: Some(BackgroundPattern::grid(egui::vec2(50.0, 50.0), 0.0)),
-        min_scale: Some(0.1),
-        max_scale: Some(2.0),
+        min_scale: Some(1.0),
+        max_scale: Some(1.10),
         centering: Some(true),
         wire_smoothness: Some(0.0),
         ..CanvasStyle::new()
@@ -321,8 +321,8 @@ pub fn style_controls_ui(ui: &mut egui::Ui, style: &mut CanvasStyle) {
 
     ui.separator();
     ui.collapsing("Interaction and zoom", |ui| {
-        ui.add(egui::Slider::new(style.min_scale.get_or_insert(0.1), 0.05..=1.0).text("Min scale"));
-        ui.add(egui::Slider::new(style.max_scale.get_or_insert(2.0), 1.0..=4.0).text("Max scale"));
+        ui.add(egui::Slider::new(style.min_scale.get_or_insert(1.0), 0.05..=1.0).text("Min scale"));
+        ui.add(egui::Slider::new(style.max_scale.get_or_insert(1.10), 1.0..=4.0).text("Max scale"));
         if let (Some(min), Some(max)) = (style.min_scale, style.max_scale)
             && min >= max
         {

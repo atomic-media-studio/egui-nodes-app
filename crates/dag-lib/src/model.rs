@@ -1,4 +1,5 @@
-//! Graph topology and node payloads — portable, testable, no UI types.
+//! Graph topology and node payloads — directed edges ([`Link`]) form the usual **dataflow DAG** on
+//! nodes when acyclic; see [`crate::eval::dependency_graph_is_acyclic`].
 
 use std::collections::{HashMap, HashSet};
 

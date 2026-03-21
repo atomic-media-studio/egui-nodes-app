@@ -22,7 +22,7 @@ pub struct PanZoomState;
 #[derive(Clone, Copy, Debug, Default)]
 pub struct SelectionState;
 
-/// View state separate from the headless [`core_graph::Graph`]: modes and future overlays.
+/// View state separate from the headless [`dag_lib::Graph`]: modes and future overlays.
 #[derive(Clone, Debug)]
 pub struct NodesViewState {
     pub mode: InteractionMode,

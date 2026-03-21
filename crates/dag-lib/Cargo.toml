@@ -1,8 +1,8 @@
 [package]
-name = "core-graph"
+name = "dag-lib"
 version = "0.1.0"
 edition = "2024"
-description = "Headless graph model: nodes, pins, links — no GUI"
+description = "Directed graph model for dataflow (DAG-oriented), stable ids, optional evaluation — no GUI"
 
 [features]
 default = []

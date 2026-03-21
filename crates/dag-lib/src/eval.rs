@@ -81,10 +81,33 @@ where
     }
 }
 
-/// Kahn topological sort on the node DAG implied by links (output pin → input pin).
+/// `true` iff the **node-level** dependency graph (one edge per link from producer node to consumer
+/// node) is a **DAG** — equivalently, Kahn’s algorithm sorts every node ([`compute_topological_order`]
+/// would not need a cycle fallback).
+pub fn dependency_graph_is_acyclic<N, E>(graph: &Graph<N, E>) -> bool {
+    kahn_topological_prefix(graph).len() == graph.nodes.len()
+}
+
+/// Kahn topological sort on the node graph implied by links (output pin → input pin).
 /// If a cycle is detected, remaining nodes are appended in ascending [`NodeId`] order so evaluation
 /// still terminates (outputs may be incomplete until the graph is fixed).
 pub fn compute_topological_order<N, E>(graph: &Graph<N, E>) -> Vec<NodeId> {
+    let mut out = kahn_topological_prefix(graph);
+    if out.len() < graph.nodes.len() {
+        let set: HashSet<NodeId> = out.iter().copied().collect();
+        let mut rest: Vec<NodeId> = graph
+            .nodes_iter()
+            .map(|n| n.id)
+            .filter(|id| !set.contains(id))
+            .collect();
+        rest.sort_by_key(|n| n.get());
+        out.extend(rest);
+    }
+    out
+}
+
+/// Kahn’s algorithm: nodes sortable in topological order before any cycle fallback.
+fn kahn_topological_prefix<N, E>(graph: &Graph<N, E>) -> Vec<NodeId> {
     let mut in_deg: HashMap<NodeId, usize> = graph.nodes_iter().map(|n| (n.id, 0)).collect();
     let mut adj: HashMap<NodeId, Vec<NodeId>> = HashMap::new();
 
@@ -124,17 +147,6 @@ pub fn compute_topological_order<N, E>(graph: &Graph<N, E>) -> Vec<NodeId> {
                 }
             }
         }
-    }
-
-    if out.len() < graph.nodes.len() {
-        let set: HashSet<NodeId> = out.iter().copied().collect();
-        let mut rest: Vec<NodeId> = graph
-            .nodes_iter()
-            .map(|n| n.id)
-            .filter(|id| !set.contains(id))
-            .collect();
-        rest.sort_by_key(|n| n.get());
-        out.extend(rest);
     }
 
     out
@@ -186,5 +198,19 @@ mod tests {
         let pos_b = order.iter().position(|&n| n == b).unwrap();
         let pos_c = order.iter().position(|&n| n == c).unwrap();
         assert!(pos_a < pos_b && pos_b < pos_c);
+    }
+
+    #[test]
+    fn dependency_graph_is_cyclic_when_loop() {
+        let mut g = Graph::<(), ()>::new();
+        let a = g.add_node((), Layout2d::default(), 1, 1);
+        let b = g.add_node((), Layout2d::default(), 1, 1);
+        let oa = g.node(a).unwrap().outputs[0].id;
+        let ib = g.node(b).unwrap().inputs[0].id;
+        let ob = g.node(b).unwrap().outputs[0].id;
+        let ia = g.node(a).unwrap().inputs[0].id;
+        g.connect(oa, ib, ()).unwrap();
+        g.connect(ob, ia, ()).unwrap();
+        assert!(!dependency_graph_is_acyclic(&g));
     }
 }

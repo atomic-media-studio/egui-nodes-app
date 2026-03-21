@@ -1,4 +1,12 @@
-//! Stable identifiers — not UI slab indices.
+//! Stable **global** identifiers for [`crate::model::Graph`].
+//!
+//! Each id is a single `NonZeroU32` issued by the graph allocator — unique among all nodes, pins, or
+//! links in that graph. They are **not** positional indices into `Vec`s (use [`crate::model::Graph`]
+//! lookups for that).
+//!
+//! **Why not `String` ids?** Compact `u32` handles are standard for in-memory graphs (fast `HashMap`
+//! keys, small moves). If you need stable names across sessions, store a string in your node payload
+//! or maintain a side map `NodeId → String` for serialization.
 
 use std::num::NonZeroU32;
 

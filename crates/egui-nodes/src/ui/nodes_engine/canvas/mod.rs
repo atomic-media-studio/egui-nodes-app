@@ -9,9 +9,9 @@
 //! - **Pan**: middle or right drag, or scroll (via [`Scene::register_pan_and_zoom`]); primary does
 //!   not pan. A full-panel [`Sense::drag`] layer forwards secondary/middle drags so pan matches
 //!   the scene transform.
-//! - **Marquee select**: **Shift + primary** drag on empty space; nodes sit above the marquee layer
-//!   and keep drags for moving/selecting.
-//! - **Click empty**: primary click clears selection (panel background response).
+//! - **Marquee select**: primary drag on empty space; nodes sit above the marquee layer and keep
+//!   drags for moving/selecting. A small movement counts as a tap and clears selection instead.
+//! - **Click empty** (no drag): primary release on empty background clears selection.
 
 use std::{collections::HashMap, hash::Hash};
 
@@ -1068,69 +1068,76 @@ where
         .drag_pan_buttons(DragPanButtons::SECONDARY | DragPanButtons::MIDDLE)
         .register_pan_and_zoom(&ui, &mut panel_resp, &mut to_global);
 
-    // Full-panel drag layer (below nodes in z-order). It captures secondary/middle drags on empty
-    // space so pan matches `Scene::register_pan_and_zoom` after `to_global` is applied.
-    //
-    // Rect must be `ui_rect` (allocated panel). `panel_resp.rect` from `ui.response()` is the
-    // previous frame’s tight bounds around widgets and does not cover the whole grid.
-    let select_resp = ui.interact(ui_rect, canvas_id.with("select"), Sense::drag());
-    if select_resp.dragged_by(PointerButton::Secondary) || select_resp.dragged_by(PointerButton::Middle)
-    {
-        to_global.translation += to_global.scaling * select_resp.drag_delta();
-        panel_resp.mark_changed();
-    }
-
     // Inform viewer about current transform.
     viewer.current_transform(&mut to_global, node_graph);
 
     canvas_state.set_to_global(to_global);
 
-    let from_global = to_global.inverse();
+    let mut from_global = to_global.inverse();
 
-    // Graph viewport
-    let viewport = (from_global * ui_rect).round_ui();
-    let viewport_clip = from_global * clip_rect;
+    // Full-panel drag layer (below nodes in z-order). Rect must be in **graph** (layer-local)
+    // space: `ui_rect` is screen-space, but nodes use `interact` in scene space after
+    // `set_transform_layer`, so a screen-space rect misaligns hit-testing with the painted panel.
+    let mut viewport = (from_global * ui_rect).round_ui();
 
-    ui.set_clip_rect(viewport.intersect(viewport_clip));
-    ui.expand_to_include_rect(viewport);
-
-    // Set transform for node_graph layer.
+    // `Context::set_transform_layer` is sticky and affects pointer hit-testing for this layer.
+    // It must run **before** `interact` so the rect we pass matches the transform used to map
+    // pointer ↔ layer space (see `Scene::show` in egui, which sets transform before contents).
     ui.ctx().set_transform_layer(graph_layer_id, to_global);
+
+    // `Ui::interact` uses `interact_rect = clip_rect().intersect(rect)` (egui `ui.rs`). The child
+    // `Ui` inherits the parent's `clip_rect` in **screen** space; `viewport` is **layer-local**.
+    // Intersecting those mixes coordinate systems and shrinks the drag layer to a bogus region
+    // (often only one corner of the canvas). Set layer-local clip first, like `Scene::show`.
+    let mut viewport_clip = from_global * clip_rect;
+    ui.set_clip_rect(viewport.intersect(viewport_clip));
+
+    let select_resp = ui.interact(viewport, canvas_id.with("select"), Sense::drag());
+    if select_resp.dragged_by(PointerButton::Secondary) || select_resp.dragged_by(PointerButton::Middle)
+    {
+        to_global.translation += to_global.scaling * select_resp.drag_delta();
+        panel_resp.mark_changed();
+        canvas_state.set_to_global(to_global);
+        from_global = to_global.inverse();
+        viewport = (from_global * ui_rect).round_ui();
+        viewport_clip = from_global * clip_rect;
+        ui.set_clip_rect(viewport.intersect(viewport_clip));
+        ui.ctx().set_transform_layer(graph_layer_id, to_global);
+    }
+
+    ui.expand_to_include_rect(viewport);
 
     // Map latest pointer position to graph space.
     latest_pos = latest_pos.map(|pos| from_global * pos);
 
-    // Rectangle (marquee) selection: Shift + primary drag on empty canvas. Nodes are drawn after
-    // this layer and win hit-testing on top of nodes. `is_rect_selection` allows finishing a
-    // drag after Shift is released mid-gesture.
+    // Rectangle (marquee) selection: primary drag on empty canvas (nodes are drawn after this layer
+    // and win hit-testing on top of nodes).
     let mut rect_selection_ended = None;
-    if modifiers.shift || canvas_state.is_rect_selection() {
-        if select_resp.dragged_by(PointerButton::Primary) && let Some(pos) = latest_pos {
-            if canvas_state.is_rect_selection() {
-                canvas_state.update_rect_selection(pos);
-            } else {
-                canvas_state.start_rect_selection(pos);
-            }
+    if select_resp.dragged_by(PointerButton::Primary) && let Some(pos) = latest_pos {
+        if canvas_state.is_rect_selection() {
+            canvas_state.update_rect_selection(pos);
+        } else {
+            canvas_state.start_rect_selection(pos);
         }
+    }
 
-        if select_resp.drag_stopped_by(PointerButton::Primary) {
-            let min_marquee_px = ui.style().interaction.interact_radius;
-            let select_rect = canvas_state.rect_selection();
-            let is_tap = select_rect.is_none_or(|rect| {
-                let max_edge_graph = rect.width().abs().max(rect.height().abs());
-                max_edge_graph * to_global.scaling < min_marquee_px
-            });
+    if select_resp.drag_stopped_by(PointerButton::Primary) {
+        let min_marquee_px = ui.style().interaction.interact_radius;
+        let select_rect = canvas_state.rect_selection();
+        let is_tap = select_rect.is_none_or(|rect| {
+            let max_edge_graph = rect.width().abs().max(rect.height().abs());
+            max_edge_graph * to_global.scaling < min_marquee_px
+        });
 
-            if let Some(rect) = select_rect
-                && !is_tap
-            {
-                rect_selection_ended = Some(rect);
-            }
-            if is_tap {
-                canvas_state.deselect_all_nodes();
-            }
-            canvas_state.stop_rect_selection();
+        if let Some(rect) = select_rect
+            && !is_tap
+        {
+            rect_selection_ended = Some(rect);
         }
+        if is_tap {
+            canvas_state.deselect_all_nodes();
+        }
+        canvas_state.stop_rect_selection();
     }
 
     if panel_resp.changed() || select_resp.changed() {
@@ -1247,7 +1254,7 @@ where
                     hovered_wire = Some(wire);
 
                     let wire_r =
-                        ui.interact(ui_rect, ui.make_persistent_id(wire), Sense::click());
+                        ui.interact(viewport, ui.make_persistent_id(wire), Sense::click());
 
                     //Remove hovered wire by second click
                     hovered_wire_disconnect |= wire_r.clicked_by(PointerButton::Secondary);

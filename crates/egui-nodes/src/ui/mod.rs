@@ -9,7 +9,7 @@ pub mod view;
 
 pub use editor::shell_viewer::NodesShellViewer;
 pub use editor::{
-    GraphChanges, NodeData, NodesEditor, NodesEditorError,
+    GraphChanges, NodeData, NodesEditor, NodesEditorError, layout_to_pos2, pos2_to_layout,
 };
 pub use state::{
     InteractionMode, NodesViewState, PanZoomState, SelectionState,
