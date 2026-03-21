@@ -2,7 +2,7 @@
 name = "egui-nodes"
 version = "0.1.0"
 edition = "2024"
-description = "Snarl adapter + node editor widgets on top of core-graph — GUI layer, no graph logic"
+description = "Node editor widgets and NodeGraph canvas on top of core-graph — GUI layer, no graph logic"
 
 [lib]
 name = "egui_nodes"

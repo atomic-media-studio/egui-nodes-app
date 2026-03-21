@@ -1,6 +1,6 @@
-//! Node-graph container for egui (merged from egui-snarl). Lives under [`crate::ui`] with the rest
-//! of the editor UI. The widget implementation is in [`canvas`], a submodule so it can access
-//! [`Snarl`] internals.
+//! Interactive node graph for egui: [`NodeGraph`] stores nodes, wires, and positions; [`canvas`]
+//! implements [`NodesCanvas`](crate::ui::nodes_engine::canvas::NodesCanvas) / rendering and input.
+//! The canvas module is a submodule so it can use `NodeGraph` internals while keeping the public API narrow.
 
 pub mod canvas;
 
@@ -10,9 +10,9 @@ use std::ops::{Index, IndexMut};
 use egui::{Pos2, ahash::HashSet};
 use slab::Slab;
 
-impl<T> Default for Snarl<T> {
+impl<T> Default for NodeGraph<T> {
     fn default() -> Self {
-        Snarl::new()
+        NodeGraph::new()
     }
 }
 
@@ -45,8 +45,7 @@ pub struct Node<T> {
     pub open: bool,
 }
 
-/// Output pin identifier.
-/// Cosists of node id and pin index.
+/// Output pin identifier: node id and pin index.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct OutPinId {
@@ -57,7 +56,7 @@ pub struct OutPinId {
     pub output: usize,
 }
 
-/// Input pin identifier. Cosists of node id and pin index.
+/// Input pin identifier: node id and pin index.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct InPinId {
@@ -68,14 +67,14 @@ pub struct InPinId {
     pub input: usize,
 }
 
-/// Error from [`Snarl`] when a [`NodeId`] is not valid for the operation.
+/// Error from [`NodeGraph`] when a [`NodeId`] is not valid for the operation.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
-pub enum SnarlError {
-    /// No node exists with this id in the [`Snarl`].
+pub enum NodeGraphError {
+    /// No node exists with this id in the [`NodeGraph`].
     UnknownNode(NodeId),
 }
 
-impl fmt::Display for SnarlError {
+impl fmt::Display for NodeGraphError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
             Self::UnknownNode(id) => write!(f, "unknown node {}", id.0),
@@ -83,7 +82,7 @@ impl fmt::Display for SnarlError {
     }
 }
 
-impl std::error::Error for SnarlError {}
+impl std::error::Error for NodeGraphError {}
 
 /// Connection between two nodes.
 ///
@@ -203,44 +202,44 @@ impl Wires {
     }
 }
 
-/// Snarl is generic node-graph container.
+/// NodeGraph is generic node-graph container.
 ///
 /// It holds graph state - positioned nodes and wires between their pins.
-/// It can be rendered using [`Snarl::show`].
+/// It can be rendered using [`NodeGraph::show`].
 #[derive(Clone, Debug)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
-pub struct Snarl<T> {
+pub struct NodeGraph<T> {
     // #[cfg_attr(feature = "serde", serde(with = "serde_nodes"))]
     nodes: Slab<Node<T>>,
     wires: Wires,
 }
 
-impl<T> Snarl<T> {
-    /// Create a new empty Snarl.
+impl<T> NodeGraph<T> {
+    /// Create a new empty NodeGraph.
     ///
     /// # Examples
     ///
     /// ```
-    /// # use egui_nodes::ui::nodes_engine::Snarl;
-    /// let snarl = Snarl::<()>::new();
+    /// # use egui_nodes::ui::nodes_engine::NodeGraph;
+    /// let node_graph = NodeGraph::<()>::new();
     /// ```
     #[must_use]
     pub fn new() -> Self {
-        Snarl {
+        NodeGraph {
             nodes: Slab::new(),
             wires: Wires::new(),
         }
     }
 
-    /// Adds a node to the Snarl.
+    /// Adds a node to the NodeGraph.
     /// Returns the index of the node.
     ///
     /// # Examples
     ///
     /// ```
-    /// # use egui_nodes::ui::nodes_engine::Snarl;
-    /// let mut snarl = Snarl::<()>::new();
-    /// snarl.insert_node(egui::pos2(0.0, 0.0), ());
+    /// # use egui_nodes::ui::nodes_engine::NodeGraph;
+    /// let mut node_graph = NodeGraph::<()>::new();
+    /// node_graph.insert_node(egui::pos2(0.0, 0.0), ());
     /// ```
     pub fn insert_node(&mut self, pos: egui::Pos2, node: T) -> NodeId {
         let idx = self.nodes.insert(Node {
@@ -252,15 +251,15 @@ impl<T> Snarl<T> {
         NodeId(idx)
     }
 
-    /// Adds a node to the Snarl in collapsed state.
+    /// Adds a node to the NodeGraph in collapsed state.
     /// Returns the index of the node.
     ///
     /// # Examples
     ///
     /// ```
-    /// # use egui_nodes::ui::nodes_engine::Snarl;
-    /// let mut snarl = Snarl::<()>::new();
-    /// snarl.insert_node_collapsed(egui::pos2(0.0, 0.0), ());
+    /// # use egui_nodes::ui::nodes_engine::NodeGraph;
+    /// let mut node_graph = NodeGraph::<()>::new();
+    /// node_graph.insert_node_collapsed(egui::pos2(0.0, 0.0), ());
     /// ```
     pub fn insert_node_collapsed(&mut self, pos: egui::Pos2, node: T) -> NodeId {
         let idx = self.nodes.insert(Node {
@@ -286,19 +285,19 @@ impl<T> Snarl<T> {
     #[track_caller]
     pub fn open_node(&mut self, node: NodeId, open: bool) {
         self.try_open_node(node, open)
-            .expect("Snarl::open_node: node id must exist");
+            .expect("NodeGraph::open_node: node id must exist");
     }
 
-    /// Opens or collapses a node, or returns [`SnarlError::UnknownNode`] if `node` is invalid.
-    pub fn try_open_node(&mut self, node: NodeId, open: bool) -> Result<(), SnarlError> {
+    /// Opens or collapses a node, or returns [`NodeGraphError::UnknownNode`] if `node` is invalid.
+    pub fn try_open_node(&mut self, node: NodeId, open: bool) -> Result<(), NodeGraphError> {
         if !self.nodes.contains(node.0) {
-            return Err(SnarlError::UnknownNode(node));
+            return Err(NodeGraphError::UnknownNode(node));
         }
         self.nodes[node.0].open = open;
         Ok(())
     }
 
-    /// Removes a node from the Snarl.
+    /// Removes a node from the NodeGraph.
     /// Returns the node if it was removed.
     ///
     /// # Panics
@@ -308,21 +307,21 @@ impl<T> Snarl<T> {
     /// # Examples
     ///
     /// ```
-    /// # use egui_nodes::ui::nodes_engine::Snarl;
-    /// let mut snarl = Snarl::<()>::new();
-    /// let node = snarl.insert_node(egui::pos2(0.0, 0.0), ());
-    /// snarl.remove_node(node);
+    /// # use egui_nodes::ui::nodes_engine::NodeGraph;
+    /// let mut node_graph = NodeGraph::<()>::new();
+    /// let node = node_graph.insert_node(egui::pos2(0.0, 0.0), ());
+    /// node_graph.remove_node(node);
     /// ```
     #[track_caller]
     pub fn remove_node(&mut self, idx: NodeId) -> T {
         self.try_remove_node(idx)
-            .expect("Snarl::remove_node: node id must exist")
+            .expect("NodeGraph::remove_node: node id must exist")
     }
 
-    /// Removes a node and its incident wires, or returns [`SnarlError::UnknownNode`].
-    pub fn try_remove_node(&mut self, idx: NodeId) -> Result<T, SnarlError> {
+    /// Removes a node and its incident wires, or returns [`NodeGraphError::UnknownNode`].
+    pub fn try_remove_node(&mut self, idx: NodeId) -> Result<T, NodeGraphError> {
         if !self.nodes.contains(idx.0) {
-            return Err(SnarlError::UnknownNode(idx));
+            return Err(NodeGraphError::UnknownNode(idx));
         }
         let value = self.nodes.remove(idx.0).value;
         self.wires.drop_node(idx);
@@ -339,17 +338,17 @@ impl<T> Snarl<T> {
     #[track_caller]
     pub fn connect(&mut self, from: OutPinId, to: InPinId) -> bool {
         self.try_connect(from, to)
-            .expect("Snarl::connect: both node ids must exist")
+            .expect("NodeGraph::connect: both node ids must exist")
     }
 
     /// Connects two nodes. Returns `Ok(true)` if a new wire was added, `Ok(false)` if it already
-    /// existed, or [`SnarlError::UnknownNode`] if either endpoint node is missing.
-    pub fn try_connect(&mut self, from: OutPinId, to: InPinId) -> Result<bool, SnarlError> {
+    /// existed, or [`NodeGraphError::UnknownNode`] if either endpoint node is missing.
+    pub fn try_connect(&mut self, from: OutPinId, to: InPinId) -> Result<bool, NodeGraphError> {
         if !self.nodes.contains(from.node.0) {
-            return Err(SnarlError::UnknownNode(from.node));
+            return Err(NodeGraphError::UnknownNode(from.node));
         }
         if !self.nodes.contains(to.node.0) {
-            return Err(SnarlError::UnknownNode(to.node));
+            return Err(NodeGraphError::UnknownNode(to.node));
         }
         let wire = Wire {
             out_pin: from,
@@ -367,17 +366,17 @@ impl<T> Snarl<T> {
     #[track_caller]
     pub fn disconnect(&mut self, from: OutPinId, to: InPinId) -> bool {
         self.try_disconnect(from, to)
-            .expect("Snarl::disconnect: both node ids must exist")
+            .expect("NodeGraph::disconnect: both node ids must exist")
     }
 
-    /// Disconnects two nodes, or returns [`SnarlError::UnknownNode`] if an endpoint is invalid.
+    /// Disconnects two nodes, or returns [`NodeGraphError::UnknownNode`] if an endpoint is invalid.
     /// Returns `Ok(true)` if a wire was removed, `Ok(false)` if none matched.
-    pub fn try_disconnect(&mut self, from: OutPinId, to: InPinId) -> Result<bool, SnarlError> {
+    pub fn try_disconnect(&mut self, from: OutPinId, to: InPinId) -> Result<bool, NodeGraphError> {
         if !self.nodes.contains(from.node.0) {
-            return Err(SnarlError::UnknownNode(from.node));
+            return Err(NodeGraphError::UnknownNode(from.node));
         }
         if !self.nodes.contains(to.node.0) {
-            return Err(SnarlError::UnknownNode(to.node));
+            return Err(NodeGraphError::UnknownNode(to.node));
         }
         let wire = Wire {
             out_pin: from,
@@ -396,13 +395,13 @@ impl<T> Snarl<T> {
     #[track_caller]
     pub fn drop_inputs(&mut self, pin: InPinId) -> usize {
         self.try_drop_inputs(pin)
-            .expect("Snarl::drop_inputs: node id must exist")
+            .expect("NodeGraph::drop_inputs: node id must exist")
     }
 
     /// Like [`Self::drop_inputs`], but returns an error if `pin.node` is not in the graph.
-    pub fn try_drop_inputs(&mut self, pin: InPinId) -> Result<usize, SnarlError> {
+    pub fn try_drop_inputs(&mut self, pin: InPinId) -> Result<usize, NodeGraphError> {
         if !self.nodes.contains(pin.node.0) {
-            return Err(SnarlError::UnknownNode(pin.node));
+            return Err(NodeGraphError::UnknownNode(pin.node));
         }
         Ok(self.wires.drop_inputs(pin))
     }
@@ -416,13 +415,13 @@ impl<T> Snarl<T> {
     #[track_caller]
     pub fn drop_outputs(&mut self, pin: OutPinId) -> usize {
         self.try_drop_outputs(pin)
-            .expect("Snarl::drop_outputs: node id must exist")
+            .expect("NodeGraph::drop_outputs: node id must exist")
     }
 
     /// Like [`Self::drop_outputs`], but returns an error if `pin.node` is not in the graph.
-    pub fn try_drop_outputs(&mut self, pin: OutPinId) -> Result<usize, SnarlError> {
+    pub fn try_drop_outputs(&mut self, pin: OutPinId) -> Result<usize, NodeGraphError> {
         if !self.nodes.contains(pin.node.0) {
-            return Err(SnarlError::UnknownNode(pin.node));
+            return Err(NodeGraphError::UnknownNode(pin.node));
         }
         Ok(self.wires.drop_outputs(pin))
     }
@@ -554,7 +553,7 @@ impl<T> Snarl<T> {
     }
 }
 
-impl<T> Index<NodeId> for Snarl<T> {
+impl<T> Index<NodeId> for NodeGraph<T> {
     type Output = T;
 
     #[inline]
@@ -564,7 +563,7 @@ impl<T> Index<NodeId> for Snarl<T> {
     }
 }
 
-impl<T> IndexMut<NodeId> for Snarl<T> {
+impl<T> IndexMut<NodeId> for NodeGraph<T> {
     #[inline]
     #[track_caller]
     fn index_mut(&mut self, idx: NodeId) -> &mut Self::Output {
@@ -881,32 +880,32 @@ pub struct InPin {
 }
 
 impl OutPin {
-    fn new<T>(snarl: &Snarl<T>, pin: OutPinId) -> Self {
+    fn new<T>(node_graph: &NodeGraph<T>, pin: OutPinId) -> Self {
         OutPin {
             id: pin,
-            remotes: snarl.wires.wired_inputs(pin).collect(),
+            remotes: node_graph.wires.wired_inputs(pin).collect(),
         }
     }
 }
 
 impl InPin {
-    fn new<T>(snarl: &Snarl<T>, pin: InPinId) -> Self {
+    fn new<T>(node_graph: &NodeGraph<T>, pin: InPinId) -> Self {
         InPin {
             id: pin,
-            remotes: snarl.wires.wired_outputs(pin).collect(),
+            remotes: node_graph.wires.wired_outputs(pin).collect(),
         }
     }
 }
 
 #[cfg(test)]
-mod snarl_try_api_tests {
+mod node_graph_try_api_tests {
     use egui::Pos2;
 
     use super::*;
 
     #[test]
     fn try_connect_errs_on_unknown_from_node() {
-        let mut s = Snarl::<()>::new();
+        let mut s = NodeGraph::<()>::new();
         let b = s.insert_node(Pos2::ZERO, ());
         let bad = NodeId(42);
         let out = OutPinId {
@@ -916,13 +915,13 @@ mod snarl_try_api_tests {
         let inp = InPinId { node: b, input: 0 };
         assert!(matches!(
             s.try_connect(out, inp),
-            Err(SnarlError::UnknownNode(n)) if n == bad
+            Err(NodeGraphError::UnknownNode(n)) if n == bad
         ));
     }
 
     #[test]
     fn try_connect_ok_and_duplicate() {
-        let mut s = Snarl::<()>::new();
+        let mut s = NodeGraph::<()>::new();
         let a = s.insert_node(Pos2::ZERO, ());
         let b = s.insert_node(Pos2::ZERO, ());
         let out = OutPinId { node: a, output: 0 };
@@ -933,10 +932,10 @@ mod snarl_try_api_tests {
 
     #[test]
     fn try_remove_node_unknown() {
-        let mut s = Snarl::<()>::new();
+        let mut s = NodeGraph::<()>::new();
         assert!(matches!(
             s.try_remove_node(NodeId(99)),
-            Err(SnarlError::UnknownNode(_))
+            Err(NodeGraphError::UnknownNode(_))
         ));
     }
 }

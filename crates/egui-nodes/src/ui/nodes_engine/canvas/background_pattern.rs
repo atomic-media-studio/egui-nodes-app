@@ -9,7 +9,7 @@ use egui::{
     Vec2,
 };
 
-use super::SnarlStyle;
+use super::CanvasStyle;
 
 /// How a [`Grid`] is drawn.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
@@ -24,8 +24,8 @@ pub enum GridRenderMode {
 }
 
 /// Grid background pattern.
-/// Stroke defaults come from [`SnarlStyle::bg_pattern_stroke`]; use [`Grid::color`] to override color
-/// per pattern.
+/// Stroke defaults come from the canvas style’s background stroke; use [`Grid::color`] to override
+/// per instance.
 #[derive(Clone, Copy, Debug, PartialEq)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 #[cfg_attr(feature = "egui-probe", derive(egui_probe::EguiProbe))]
@@ -43,10 +43,10 @@ pub struct Grid {
     /// Offset in pattern space before rotation (animate for drift / parallax).
     pub phase: Vec2,
 
-    /// Radius for [`GridRenderMode::Dots`] (logical pixels; scaled when the Snarl zoom changes).
+    /// Radius for [`GridRenderMode::Dots`] (logical pixels; scaled when the NodeGraph zoom changes).
     pub dot_radius: f32,
 
-    /// Optional color override. If `None`, uses [`SnarlStyle::get_bg_pattern_stroke`] color.
+    /// Optional color override. If `None`, uses [`CanvasStyle::get_bg_pattern_stroke`] color.
     pub color: Option<Color32>,
 }
 
@@ -104,8 +104,8 @@ impl Grid {
         }
     }
 
-    fn draw(&self, viewport: &Rect, snarl_style: &SnarlStyle, style: &Style, painter: &Painter) {
-        let bg_stroke = snarl_style.get_bg_pattern_stroke(style);
+    fn draw(&self, viewport: &Rect, canvas_style: &CanvasStyle, style: &Style, painter: &Painter) {
+        let bg_stroke = canvas_style.get_bg_pattern_stroke(style);
         let color = self.color.unwrap_or(bg_stroke.color);
         let stroke = Stroke::new(bg_stroke.width, color);
 
@@ -260,12 +260,12 @@ impl BackgroundPattern {
     pub fn draw(
         &self,
         viewport: &Rect,
-        snarl_style: &SnarlStyle,
+        canvas_style: &CanvasStyle,
         style: &Style,
         painter: &Painter,
     ) {
         match self {
-            BackgroundPattern::Grid(g) => g.draw(viewport, snarl_style, style, painter),
+            BackgroundPattern::Grid(g) => g.draw(viewport, canvas_style, style, painter),
             BackgroundPattern::NoPattern => {}
         }
     }

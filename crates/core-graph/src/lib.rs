@@ -1,8 +1,10 @@
-//! **core-graph** — the headless **contract** for this workspace: stable ids, [`Graph`] topology,
-//! optional [`eval`] dataflow execution, and (with the `serde` feature) portable snapshots.
+//! **core-graph** — headless graph model and (optional) evaluation for this workspace.
 //!
-//! Keep all real-time semantics, benchmarks, and fuzz targets here so **egui never sits on the hot
-//! path** for graph logic. GUI crates should only adapt and visualize.
+//! Provides stable ids, [`Graph`] topology, [`Pin`] connectivity, [`Layout2d`], and with the
+//! `serde` feature, portable snapshots. Evaluation and traversal helpers live in [`eval`].
+//!
+//! **Design**: keep benchmarks, fuzzing, and hot-path graph logic here; UI crates depend on this
+//! crate and map their widgets to [`NodeId`] / [`LinkId`] without duplicating topology rules.
 
 pub mod error;
 pub mod eval;

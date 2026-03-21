@@ -1,21 +1,24 @@
+//! [`NodesShellViewer`] decorates a [`NodeGraphViewer`] with [`NodesStyle`] strokes and
+//! [`InteractionMode`] (e.g. inspect).
+
 use std::sync::Arc;
 
 use egui::emath::TSTransform;
 use egui::{Context, Frame, Id, Painter, Pos2, Rect, Style, Ui};
 
-use crate::ui::nodes_engine::{InPin, InPinId, NodeId, OutPin, OutPinId, Snarl};
-use crate::ui::snarl_canvas::{
-    AnyPins, BackgroundPattern, SnarlStyle, SnarlViewer, get_selected_nodes,
+use crate::ui::nodes_engine::{InPin, InPinId, NodeId, OutPin, OutPinId, NodeGraph};
+use crate::ui::nodes_canvas::{
+    AnyPins, BackgroundPattern, CanvasStyle, NodeGraphViewer, get_selected_nodes,
 };
 
 use crate::ui::state::InteractionMode;
 use crate::ui::style::NodesStyle;
 
-/// Wraps your [`SnarlViewer`] to apply [`NodesStyle`] node strokes and enforce [`InteractionMode::Inspect`].
+/// Wraps your [`NodeGraphViewer`] to apply [`NodesStyle`] node strokes and enforce [`InteractionMode::Inspect`].
 pub struct NodesShellViewer<V> {
     pub inner: V,
     style: Arc<NodesStyle>,
-    snarl_id: Id,
+    canvas_id: Id,
     mode: InteractionMode,
     ctx: Option<Context>,
 }
@@ -25,7 +28,7 @@ impl<V> NodesShellViewer<V> {
         Self {
             inner,
             style: Arc::new(NodesStyle::new()),
-            snarl_id: Id::NULL,
+            canvas_id: Id::NULL,
             mode: InteractionMode::Select,
             ctx: None,
         }
@@ -33,12 +36,12 @@ impl<V> NodesShellViewer<V> {
 
     pub(crate) fn prepare(
         &mut self,
-        snarl_id: Id,
+        canvas_id: Id,
         mode: InteractionMode,
         ctx: &Context,
         style: &NodesStyle,
     ) {
-        self.snarl_id = snarl_id;
+        self.canvas_id = canvas_id;
         self.mode = mode;
         self.ctx = Some(ctx.clone());
         self.style = Arc::new(style.clone());
@@ -49,7 +52,7 @@ impl<V> NodesShellViewer<V> {
     }
 }
 
-impl<T, V: SnarlViewer<T>> SnarlViewer<T> for NodesShellViewer<V> {
+impl<T, V: NodeGraphViewer<T>> NodeGraphViewer<T> for NodesShellViewer<V> {
     fn title(&mut self, node: &T) -> String {
         self.inner.title(node)
     }
@@ -60,15 +63,15 @@ impl<T, V: SnarlViewer<T>> SnarlViewer<T> for NodesShellViewer<V> {
         node: NodeId,
         inputs: &[InPin],
         outputs: &[OutPin],
-        snarl: &Snarl<T>,
+        node_graph: &NodeGraph<T>,
     ) -> Frame {
         let mut frame = self
             .inner
-            .node_frame(default, node, inputs, outputs, snarl);
+            .node_frame(default, node, inputs, outputs, node_graph);
         let Some(ref ctx) = self.ctx else {
             return frame;
         };
-        let selected = get_selected_nodes(self.snarl_id, ctx).contains(&node);
+        let selected = get_selected_nodes(self.canvas_id, ctx).contains(&node);
         let egui_style = ctx.style();
         frame.stroke = self.style.node_style.stroke(
             selected,
@@ -86,10 +89,10 @@ impl<T, V: SnarlViewer<T>> SnarlViewer<T> for NodesShellViewer<V> {
         node: NodeId,
         inputs: &[InPin],
         outputs: &[OutPin],
-        snarl: &Snarl<T>,
+        node_graph: &NodeGraph<T>,
     ) -> Frame {
         self.inner
-            .header_frame(default, node, inputs, outputs, snarl)
+            .header_frame(default, node, inputs, outputs, node_graph)
     }
 
     fn has_node_style(
@@ -97,9 +100,9 @@ impl<T, V: SnarlViewer<T>> SnarlViewer<T> for NodesShellViewer<V> {
         node: NodeId,
         inputs: &[InPin],
         outputs: &[OutPin],
-        snarl: &Snarl<T>,
+        node_graph: &NodeGraph<T>,
     ) -> bool {
-        self.inner.has_node_style(node, inputs, outputs, snarl)
+        self.inner.has_node_style(node, inputs, outputs, node_graph)
     }
 
     fn apply_node_style(
@@ -108,22 +111,22 @@ impl<T, V: SnarlViewer<T>> SnarlViewer<T> for NodesShellViewer<V> {
         node: NodeId,
         inputs: &[InPin],
         outputs: &[OutPin],
-        snarl: &Snarl<T>,
+        node_graph: &NodeGraph<T>,
     ) {
         self.inner
-            .apply_node_style(style, node, inputs, outputs, snarl)
+            .apply_node_style(style, node, inputs, outputs, node_graph)
     }
 
     fn node_layout(
         &mut self,
-        default: crate::ui::snarl_canvas::NodeLayout,
+        default: crate::ui::nodes_canvas::NodeLayout,
         node: NodeId,
         inputs: &[InPin],
         outputs: &[OutPin],
-        snarl: &Snarl<T>,
-    ) -> crate::ui::snarl_canvas::NodeLayout {
+        node_graph: &NodeGraph<T>,
+    ) -> crate::ui::nodes_canvas::NodeLayout {
         self.inner
-            .node_layout(default, node, inputs, outputs, snarl)
+            .node_layout(default, node, inputs, outputs, node_graph)
     }
 
     fn show_header(
@@ -132,9 +135,9 @@ impl<T, V: SnarlViewer<T>> SnarlViewer<T> for NodesShellViewer<V> {
         inputs: &[InPin],
         outputs: &[OutPin],
         ui: &mut Ui,
-        snarl: &mut Snarl<T>,
+        node_graph: &mut NodeGraph<T>,
     ) {
-        self.inner.show_header(node, inputs, outputs, ui, snarl)
+        self.inner.show_header(node, inputs, outputs, ui, node_graph)
     }
 
     fn inputs(&mut self, node: &T) -> usize {
@@ -145,9 +148,9 @@ impl<T, V: SnarlViewer<T>> SnarlViewer<T> for NodesShellViewer<V> {
         &mut self,
         pin: &InPin,
         ui: &mut Ui,
-        snarl: &mut Snarl<T>,
-    ) -> impl crate::ui::snarl_canvas::SnarlPin + 'static {
-        self.inner.show_input(pin, ui, snarl)
+        node_graph: &mut NodeGraph<T>,
+    ) -> impl crate::ui::nodes_canvas::GraphPin + 'static {
+        self.inner.show_input(pin, ui, node_graph)
     }
 
     fn outputs(&mut self, node: &T) -> usize {
@@ -158,9 +161,9 @@ impl<T, V: SnarlViewer<T>> SnarlViewer<T> for NodesShellViewer<V> {
         &mut self,
         pin: &OutPin,
         ui: &mut Ui,
-        snarl: &mut Snarl<T>,
-    ) -> impl crate::ui::snarl_canvas::SnarlPin + 'static {
-        self.inner.show_output(pin, ui, snarl)
+        node_graph: &mut NodeGraph<T>,
+    ) -> impl crate::ui::nodes_canvas::GraphPin + 'static {
+        self.inner.show_output(pin, ui, node_graph)
     }
 
     fn has_body(&mut self, node: &T) -> bool {
@@ -173,9 +176,9 @@ impl<T, V: SnarlViewer<T>> SnarlViewer<T> for NodesShellViewer<V> {
         inputs: &[InPin],
         outputs: &[OutPin],
         ui: &mut Ui,
-        snarl: &mut Snarl<T>,
+        node_graph: &mut NodeGraph<T>,
     ) {
-        self.inner.show_body(node, inputs, outputs, ui, snarl)
+        self.inner.show_body(node, inputs, outputs, ui, node_graph)
     }
 
     fn has_footer(&mut self, node: &T) -> bool {
@@ -188,9 +191,9 @@ impl<T, V: SnarlViewer<T>> SnarlViewer<T> for NodesShellViewer<V> {
         inputs: &[InPin],
         outputs: &[OutPin],
         ui: &mut Ui,
-        snarl: &mut Snarl<T>,
+        node_graph: &mut NodeGraph<T>,
     ) {
-        self.inner.show_footer(node, inputs, outputs, ui, snarl)
+        self.inner.show_footer(node, inputs, outputs, ui, node_graph)
     }
 
     fn final_node_rect(
@@ -198,9 +201,9 @@ impl<T, V: SnarlViewer<T>> SnarlViewer<T> for NodesShellViewer<V> {
         node: NodeId,
         rect: Rect,
         ui: &mut Ui,
-        snarl: &mut Snarl<T>,
+        node_graph: &mut NodeGraph<T>,
     ) {
-        self.inner.final_node_rect(node, rect, ui, snarl)
+        self.inner.final_node_rect(node, rect, ui, node_graph)
     }
 
     fn has_on_hover_popup(&mut self, node: &T) -> bool {
@@ -213,14 +216,14 @@ impl<T, V: SnarlViewer<T>> SnarlViewer<T> for NodesShellViewer<V> {
         inputs: &[InPin],
         outputs: &[OutPin],
         ui: &mut Ui,
-        snarl: &mut Snarl<T>,
+        node_graph: &mut NodeGraph<T>,
     ) {
         self.inner
-            .show_on_hover_popup(node, inputs, outputs, ui, snarl)
+            .show_on_hover_popup(node, inputs, outputs, ui, node_graph)
     }
 
-    fn has_wire_widget(&mut self, from: &OutPinId, to: &InPinId, snarl: &Snarl<T>) -> bool {
-        self.inner.has_wire_widget(from, to, snarl)
+    fn has_wire_widget(&mut self, from: &OutPinId, to: &InPinId, node_graph: &NodeGraph<T>) -> bool {
+        self.inner.has_wire_widget(from, to, node_graph)
     }
 
     fn show_wire_widget(
@@ -228,30 +231,30 @@ impl<T, V: SnarlViewer<T>> SnarlViewer<T> for NodesShellViewer<V> {
         from: &OutPin,
         to: &InPin,
         ui: &mut Ui,
-        snarl: &mut Snarl<T>,
+        node_graph: &mut NodeGraph<T>,
     ) {
-        self.inner.show_wire_widget(from, to, ui, snarl)
+        self.inner.show_wire_widget(from, to, ui, node_graph)
     }
 
-    fn has_graph_menu(&mut self, pos: Pos2, snarl: &mut Snarl<T>) -> bool {
+    fn has_graph_menu(&mut self, pos: Pos2, node_graph: &mut NodeGraph<T>) -> bool {
         if self.inspect() {
             return false;
         }
-        self.inner.has_graph_menu(pos, snarl)
+        self.inner.has_graph_menu(pos, node_graph)
     }
 
-    fn show_graph_menu(&mut self, pos: Pos2, ui: &mut Ui, snarl: &mut Snarl<T>) {
+    fn show_graph_menu(&mut self, pos: Pos2, ui: &mut Ui, node_graph: &mut NodeGraph<T>) {
         if self.inspect() {
             return;
         }
-        self.inner.show_graph_menu(pos, ui, snarl)
+        self.inner.show_graph_menu(pos, ui, node_graph)
     }
 
-    fn has_dropped_wire_menu(&mut self, src_pins: AnyPins, snarl: &mut Snarl<T>) -> bool {
+    fn has_dropped_wire_menu(&mut self, src_pins: AnyPins, node_graph: &mut NodeGraph<T>) -> bool {
         if self.inspect() {
             return false;
         }
-        self.inner.has_dropped_wire_menu(src_pins, snarl)
+        self.inner.has_dropped_wire_menu(src_pins, node_graph)
     }
 
     fn show_dropped_wire_menu(
@@ -259,12 +262,12 @@ impl<T, V: SnarlViewer<T>> SnarlViewer<T> for NodesShellViewer<V> {
         pos: Pos2,
         ui: &mut Ui,
         src_pins: AnyPins,
-        snarl: &mut Snarl<T>,
+        node_graph: &mut NodeGraph<T>,
     ) {
         if self.inspect() {
             return;
         }
-        self.inner.show_dropped_wire_menu(pos, ui, src_pins, snarl)
+        self.inner.show_dropped_wire_menu(pos, ui, src_pins, node_graph)
     }
 
     fn has_node_menu(&mut self, node: &T) -> bool {
@@ -280,57 +283,57 @@ impl<T, V: SnarlViewer<T>> SnarlViewer<T> for NodesShellViewer<V> {
         inputs: &[InPin],
         outputs: &[OutPin],
         ui: &mut Ui,
-        snarl: &mut Snarl<T>,
+        node_graph: &mut NodeGraph<T>,
     ) {
         if self.inspect() {
             return;
         }
         self.inner
-            .show_node_menu(node, inputs, outputs, ui, snarl)
+            .show_node_menu(node, inputs, outputs, ui, node_graph)
     }
 
-    fn connect(&mut self, from: &OutPin, to: &InPin, snarl: &mut Snarl<T>) {
+    fn connect(&mut self, from: &OutPin, to: &InPin, node_graph: &mut NodeGraph<T>) {
         if self.inspect() {
             return;
         }
-        self.inner.connect(from, to, snarl)
+        self.inner.connect(from, to, node_graph)
     }
 
-    fn disconnect(&mut self, from: &OutPin, to: &InPin, snarl: &mut Snarl<T>) {
+    fn disconnect(&mut self, from: &OutPin, to: &InPin, node_graph: &mut NodeGraph<T>) {
         if self.inspect() {
             return;
         }
-        self.inner.disconnect(from, to, snarl)
+        self.inner.disconnect(from, to, node_graph)
     }
 
-    fn drop_outputs(&mut self, pin: &OutPin, snarl: &mut Snarl<T>) {
+    fn drop_outputs(&mut self, pin: &OutPin, node_graph: &mut NodeGraph<T>) {
         if self.inspect() {
             return;
         }
-        self.inner.drop_outputs(pin, snarl)
+        self.inner.drop_outputs(pin, node_graph)
     }
 
-    fn drop_inputs(&mut self, pin: &InPin, snarl: &mut Snarl<T>) {
+    fn drop_inputs(&mut self, pin: &InPin, node_graph: &mut NodeGraph<T>) {
         if self.inspect() {
             return;
         }
-        self.inner.drop_inputs(pin, snarl)
+        self.inner.drop_inputs(pin, node_graph)
     }
 
     fn draw_background(
         &mut self,
         background: Option<&BackgroundPattern>,
         viewport: &Rect,
-        snarl_style: &SnarlStyle,
+        canvas_style: &CanvasStyle,
         style: &Style,
         painter: &Painter,
-        snarl: &Snarl<T>,
+        node_graph: &NodeGraph<T>,
     ) {
         self.inner
-            .draw_background(background, viewport, snarl_style, style, painter, snarl)
+            .draw_background(background, viewport, canvas_style, style, painter, node_graph)
     }
 
-    fn current_transform(&mut self, to_global: &mut TSTransform, snarl: &mut Snarl<T>) {
-        self.inner.current_transform(to_global, snarl)
+    fn current_transform(&mut self, to_global: &mut TSTransform, node_graph: &mut NodeGraph<T>) {
+        self.inner.current_transform(to_global, node_graph)
     }
 }

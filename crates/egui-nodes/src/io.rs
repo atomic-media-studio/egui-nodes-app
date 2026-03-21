@@ -1,3 +1,5 @@
+//! JSON load/save helpers for serializable graphs (e.g. [`core_graph::Graph`] with `serde`).
+
 use std::path::Path;
 
 use anyhow::Context;

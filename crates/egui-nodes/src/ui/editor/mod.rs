@@ -1,4 +1,5 @@
-//! Editor session: keeps [`core_graph::Graph`] and [`Snarl`](crate::ui::nodes_engine::Snarl) in sync.
+//! Bridges [`core_graph::Graph`] and [`NodeGraph`](crate::ui::nodes_engine::NodeGraph): bidirectional
+//! id mapping, wire sync, and [`GraphChanges`] so evaluation runs only when something changed.
 
 pub mod shell_viewer;
 
@@ -8,9 +9,9 @@ use std::fmt;
 use core_graph::{Graph, GraphError, Layout2d, LinkId, NodeId, PinId};
 
 use crate::layout_bridge::{layout_to_pos2, pos2_to_layout};
-use crate::ui::nodes_engine::{InPinId, NodeId as SnarlNodeId, OutPinId, Snarl};
+use crate::ui::nodes_engine::{InPinId, NodeId as ViewNodeId, OutPinId, NodeGraph};
 
-/// Payload stored in each Snarl cell — ties slab node back to [`NodeId`] and holds user `N`.
+/// Payload stored in each NodeGraph cell — ties slab node back to [`NodeId`] and holds user `N`.
 #[derive(Clone, Debug)]
 pub struct NodeData<N> {
     pub node_id: NodeId,
@@ -25,7 +26,7 @@ pub struct NodeData<N> {
 pub struct GraphChanges {
     /// Node/link connectivity changed (add/remove wire or node).
     pub topology_changed: bool,
-    /// Node payload, [`core_graph::Layout2d`], or collapse state changed (Snarl ↔ graph sync).
+    /// Node payload, [`core_graph::Layout2d`], or collapse state changed (NodeGraph ↔ graph sync).
     pub payload_or_layout_changed: bool,
 }
 
@@ -40,17 +41,17 @@ impl GraphChanges {
 pub enum NodesEditorError {
     Graph(GraphError),
     UnmappedNode(NodeId),
-    UnmappedSnarlNode(SnarlNodeId),
-    SnarlRejectedWire,
+    UnmappedViewNode(ViewNodeId),
+    ViewRejectedWire,
 }
 
 impl fmt::Display for NodesEditorError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
             Self::Graph(e) => write!(f, "{e}"),
-            Self::UnmappedNode(id) => write!(f, "node {} not mapped to Snarl", id.get()),
-            Self::UnmappedSnarlNode(id) => write!(f, "snarl node {} not mapped", id.0),
-            Self::SnarlRejectedWire => write!(f, "Snarl rejected wire"),
+            Self::UnmappedNode(id) => write!(f, "node {} not mapped to NodeGraph", id.get()),
+            Self::UnmappedViewNode(id) => write!(f, "view node {} not mapped", id.0),
+            Self::ViewRejectedWire => write!(f, "node graph rejected wire"),
         }
     }
 }
@@ -70,16 +71,16 @@ impl From<GraphError> for NodesEditorError {
     }
 }
 
-/// Owns the headless [`Graph`] and the Snarl view; maps [`NodeId`] ↔ [`SnarlNodeId`].
+/// Owns the headless [`Graph`] and the [`NodeGraph`] view; maps [`NodeId`] ↔ [`ViewNodeId`].
 ///
 /// After [`crate::NodesView::show`](crate::ui::view::NodesView::show), call [`Self::take_graph_changes`]
 /// once to see whether topology or payloads changed — then refresh a [`core_graph::Executor`] only when
 /// needed (e.g. [`GraphChanges::topology_changed`] ⇒ [`core_graph::Executor::recompute_topology`]).
 pub struct NodesEditor<N, E> {
     pub graph: Graph<N, E>,
-    pub snarl: Snarl<NodeData<N>>,
-    node_to_snarl: HashMap<NodeId, SnarlNodeId>,
-    snarl_to_node: HashMap<SnarlNodeId, NodeId>,
+    pub node_graph: NodeGraph<NodeData<N>>,
+    core_to_view: HashMap<NodeId, ViewNodeId>,
+    view_to_core: HashMap<ViewNodeId, NodeId>,
     pending_changes: GraphChanges,
 }
 
@@ -93,9 +94,9 @@ impl<N, E> NodesEditor<N, E> {
     pub fn new() -> Self {
         Self {
             graph: Graph::new(),
-            snarl: Snarl::new(),
-            node_to_snarl: HashMap::new(),
-            snarl_to_node: HashMap::new(),
+            node_graph: NodeGraph::new(),
+            core_to_view: HashMap::new(),
+            view_to_core: HashMap::new(),
             pending_changes: GraphChanges::default(),
         }
     }
@@ -106,15 +107,15 @@ impl<N, E> NodesEditor<N, E> {
         std::mem::take(&mut self.pending_changes)
     }
 
-    pub fn snarl_node(&self, graph: NodeId) -> Option<SnarlNodeId> {
-        self.node_to_snarl.get(&graph).copied()
+    pub fn view_node_id(&self, core: NodeId) -> Option<ViewNodeId> {
+        self.core_to_view.get(&core).copied()
     }
 
-    pub fn graph_node(&self, snarl: SnarlNodeId) -> Option<NodeId> {
-        self.snarl_to_node.get(&snarl).copied()
+    pub fn core_node_id(&self, view: ViewNodeId) -> Option<NodeId> {
+        self.view_to_core.get(&view).copied()
     }
 
-    fn map_snarl_pin_out(&self, pin: PinId) -> Result<(SnarlNodeId, usize), NodesEditorError> {
+    fn map_view_pin_out(&self, pin: PinId) -> Result<(ViewNodeId, usize), NodesEditorError> {
         let (nid, port, is_out) = self
             .graph
             .pin_port(pin)
@@ -123,14 +124,14 @@ impl<N, E> NodesEditor<N, E> {
             return Err(NodesEditorError::Graph(GraphError::NotOutputPin(pin)));
         }
         let sn = self
-            .node_to_snarl
+            .core_to_view
             .get(&nid)
             .copied()
             .ok_or(NodesEditorError::UnmappedNode(nid))?;
         Ok((sn, port))
     }
 
-    fn map_snarl_pin_in(&self, pin: PinId) -> Result<(SnarlNodeId, usize), NodesEditorError> {
+    fn map_view_pin_in(&self, pin: PinId) -> Result<(ViewNodeId, usize), NodesEditorError> {
         let (nid, port, is_out) = self
             .graph
             .pin_port(pin)
@@ -139,14 +140,14 @@ impl<N, E> NodesEditor<N, E> {
             return Err(NodesEditorError::Graph(GraphError::NotInputPin(pin)));
         }
         let sn = self
-            .node_to_snarl
+            .core_to_view
             .get(&nid)
             .copied()
             .ok_or(NodesEditorError::UnmappedNode(nid))?;
         Ok((sn, port))
     }
 
-    /// Add a node to the graph and a matching Snarl cell.
+    /// Add a node to the graph and a matching NodeGraph cell.
     pub fn insert_node(&mut self, data: N, layout: Layout2d, inputs: usize, outputs: usize) -> NodeId
     where
         N: Clone,
@@ -161,12 +162,12 @@ impl<N, E> NodesEditor<N, E> {
             user: data,
         };
         let sn = if collapsed {
-            self.snarl.insert_node_collapsed(pos, payload)
+            self.node_graph.insert_node_collapsed(pos, payload)
         } else {
-            self.snarl.insert_node(pos, payload)
+            self.node_graph.insert_node(pos, payload)
         };
-        self.node_to_snarl.insert(id, sn);
-        self.snarl_to_node.insert(sn, id);
+        self.core_to_view.insert(id, sn);
+        self.view_to_core.insert(sn, id);
         self.pending_changes.topology_changed = true;
         self.pending_changes.payload_or_layout_changed = true;
         id
@@ -175,9 +176,9 @@ impl<N, E> NodesEditor<N, E> {
     /// Connect output pin → input pin in both stores.
     pub fn connect_pins(&mut self, from: PinId, to: PinId, data: E) -> Result<LinkId, NodesEditorError> {
         let lid = self.graph.connect(from, to, data).map_err(NodesEditorError::from)?;
-        let (a, oi) = self.map_snarl_pin_out(from)?;
-        let (b, ii) = self.map_snarl_pin_in(to)?;
-        let ok = self.snarl.connect(
+        let (a, oi) = self.map_view_pin_out(from)?;
+        let (b, ii) = self.map_view_pin_in(to)?;
+        let ok = self.node_graph.connect(
             OutPinId {
                 node: a,
                 output: oi,
@@ -189,34 +190,34 @@ impl<N, E> NodesEditor<N, E> {
         );
         if !ok {
             let _ = self.graph.disconnect_link(lid);
-            return Err(NodesEditorError::SnarlRejectedWire);
+            return Err(NodesEditorError::ViewRejectedWire);
         }
         self.pending_changes.topology_changed = true;
         self.pending_changes.payload_or_layout_changed = true;
         Ok(lid)
     }
 
-    pub fn sync_snarl_payloads_from_graph(&mut self)
+    pub fn sync_node_graph_payloads_from_graph(&mut self)
     where
         N: Clone,
     {
-        for (&nid, &snid) in &self.node_to_snarl {
-            if let (Some(gn), Some(n)) = (self.graph.node(nid), self.snarl.get_node_info_mut(snid)) {
+        for (&nid, &snid) in &self.core_to_view {
+            if let (Some(gn), Some(n)) = (self.graph.node(nid), self.node_graph.get_node_info_mut(snid)) {
                 n.value.user = gn.data.clone();
                 n.open = !gn.collapsed;
             }
         }
     }
 
-    pub fn sync_graph_from_snarl(&mut self)
+    pub fn sync_graph_from_node_graph(&mut self)
     where
         N: Clone + PartialEq,
         E: Default + Clone,
     {
         let keys_before = self.graph.link_key_set();
         let mut payload_changed = false;
-        for (&nid, &snid) in &self.node_to_snarl {
-            if let (Some(gn), Some(info)) = (self.graph.node(nid), self.snarl.get_node_info(snid)) {
+        for (&nid, &snid) in &self.core_to_view {
+            if let (Some(gn), Some(info)) = (self.graph.node(nid), self.node_graph.get_node_info(snid)) {
                 let new_layout = pos2_to_layout(info.pos);
                 let new_collapsed = !info.open;
                 let new_data = info.value.user.clone();
@@ -225,14 +226,14 @@ impl<N, E> NodesEditor<N, E> {
                 }
             }
         }
-        for (&nid, &snid) in &self.node_to_snarl {
-            if let (Some(gn), Some(info)) = (self.graph.node_mut(nid), self.snarl.get_node_info(snid)) {
+        for (&nid, &snid) in &self.core_to_view {
+            if let (Some(gn), Some(info)) = (self.graph.node_mut(nid), self.node_graph.get_node_info(snid)) {
                 gn.layout = pos2_to_layout(info.pos);
                 gn.collapsed = !info.open;
                 gn.data = info.value.user.clone();
             }
         }
-        self.sync_links_from_snarl();
+        self.sync_links_from_node_graph();
         let keys_after = self.graph.link_key_set();
         let topology = keys_before != keys_after;
         if topology {
@@ -243,17 +244,17 @@ impl<N, E> NodesEditor<N, E> {
         }
     }
 
-    /// Update only the headless [`Graph`] link list from Snarl wires (Snarl is authoritative).
-    fn sync_links_from_snarl(&mut self)
+    /// Update only the headless [`Graph`] link list from NodeGraph wires (NodeGraph is authoritative).
+    fn sync_links_from_node_graph(&mut self)
     where
         E: Default + Clone,
     {
         let mut desired: HashSet<(PinId, PinId)> = HashSet::new();
-        for (outp, inp) in self.snarl.wires() {
-            let Ok(og) = self.graph_pin_from_snarl_out(outp) else {
+        for (outp, inp) in self.node_graph.wires() {
+            let Ok(og) = self.graph_pin_from_view_out(outp) else {
                 continue;
             };
-            let Ok(ig) = self.graph_pin_from_snarl_in(inp) else {
+            let Ok(ig) = self.graph_pin_from_view_in(inp) else {
                 continue;
             };
             desired.insert((og, ig));
@@ -277,17 +278,17 @@ impl<N, E> NodesEditor<N, E> {
         }
     }
 
-    fn graph_pin_from_snarl_out(
+    fn graph_pin_from_view_out(
         &self,
         p: OutPinId,
     ) -> Result<PinId, ()> {
-        let nid = self.snarl_to_node.get(&p.node).copied().ok_or(())?;
+        let nid = self.view_to_core.get(&p.node).copied().ok_or(())?;
         let node = self.graph.node(nid).ok_or(())?;
         node.outputs.get(p.output).map(|pin| pin.id).ok_or(())
     }
 
-    fn graph_pin_from_snarl_in(&self, p: InPinId) -> Result<PinId, ()> {
-        let nid = self.snarl_to_node.get(&p.node).copied().ok_or(())?;
+    fn graph_pin_from_view_in(&self, p: InPinId) -> Result<PinId, ()> {
+        let nid = self.view_to_core.get(&p.node).copied().ok_or(())?;
         let node = self.graph.node(nid).ok_or(())?;
         node.inputs.get(p.input).map(|pin| pin.id).ok_or(())
     }

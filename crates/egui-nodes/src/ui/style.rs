@@ -2,7 +2,7 @@ use std::sync::Arc;
 
 use egui::{Color32, Stroke, Style};
 
-use crate::ui::snarl_canvas::{BackgroundPattern, Grid, SnarlStyle};
+use crate::ui::nodes_canvas::{BackgroundPattern, Grid, CanvasStyle};
 
 /// Hooks for strokes similar in spirit to egui_graphs-style customization.
 pub trait NodeStyleHook: Send + Sync {
@@ -95,14 +95,14 @@ impl Default for GridSettings {
     }
 }
 
-/// User-facing style: Snarl draw parameters plus hooks used by [`crate::ui::editor::shell_viewer::NodesShellViewer`].
+/// User-facing style: NodeGraph draw parameters plus hooks used by [`crate::ui::editor::shell_viewer::NodesShellViewer`].
 #[derive(Clone)]
 pub struct NodesStyle {
     pub node_style: Arc<dyn NodeStyleHook>,
     pub edge_style: Arc<dyn EdgeStyleHook>,
     pub background_style: BackgroundStyle,
     pub grid: GridSettings,
-    pub snarl: SnarlStyle,
+    pub canvas: CanvasStyle,
 }
 
 impl Default for NodesStyle {
@@ -118,7 +118,7 @@ impl NodesStyle {
             edge_style: Arc::new(DefaultEdgeStyleHook),
             background_style: BackgroundStyle::default(),
             grid: GridSettings::default(),
-            snarl: SnarlStyle::new(),
+            canvas: CanvasStyle::new(),
         }
     }
 
@@ -132,24 +132,24 @@ impl NodesStyle {
         self
     }
 
-    /// Applies grid settings from [`Self::grid`] into [`Self::snarl`] when the pattern is a grid.
-    pub fn sync_grid_into_snarl(&mut self) {
+    /// Applies grid settings from [`Self::grid`] into [`Self::canvas`] when the pattern is a grid.
+    pub fn sync_grid_into_canvas(&mut self) {
         let g = self.grid;
-        match &mut self.snarl.bg_pattern {
+        match &mut self.canvas.bg_pattern {
             Some(BackgroundPattern::Grid(grid)) => {
                 grid.spacing = g.spacing;
                 grid.angle = g.angle;
             }
             None => {
-                self.snarl.bg_pattern = Some(BackgroundPattern::Grid(Grid::new(g.spacing, g.angle)));
+                self.canvas.bg_pattern = Some(BackgroundPattern::Grid(Grid::new(g.spacing, g.angle)));
             }
             Some(BackgroundPattern::NoPattern) => {}
         }
     }
 
-    /// Snarl style passed to [`SnarlWidget`](crate::ui::snarl_canvas::SnarlWidget). Hooks that need egui’s global style
-    /// run in the shell viewer; this is the copied [`SnarlStyle`] snapshot.
-    pub fn to_snarl_style(&self) -> SnarlStyle {
-        self.snarl
+    /// Node graph style passed to [`NodesCanvas`](crate::ui::nodes_canvas::NodesCanvas). Hooks that need egui’s global style
+    /// run in the shell viewer; this is the copied [`CanvasStyle`] snapshot.
+    pub fn to_canvas_style(&self) -> CanvasStyle {
+        self.canvas
     }
 }

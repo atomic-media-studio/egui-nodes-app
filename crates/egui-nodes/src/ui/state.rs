@@ -1,5 +1,5 @@
-/// High-level interaction mode. Snarl still handles low-level pointer routing; this value drives
-/// policy (e.g. inspect/read-only) and future tools (palette insert, marquee tweaks).
+/// High-level interaction mode. The canvas handles pointer routing; this drives policy (e.g.
+/// inspect/read-only) and future tools (palette insert, marquee tweaks).
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Default)]
 pub enum InteractionMode {
     #[default]
@@ -11,13 +11,14 @@ pub enum InteractionMode {
     Inspect,
 }
 
-/// Reserved for lifting pan/zoom into app state. Today Snarl stores the viewport transform internally.
+/// Placeholder for lifting pan/zoom into app state. The viewport transform lives in per-canvas
+/// [`crate::ui::nodes_engine::canvas::CanvasState`] (persisted by egui).
 #[derive(Clone, Copy, Debug, Default)]
 pub struct PanZoomState;
 
-/// Reserved for selection mirrors. Use `egui_nodes::egui_snarl_fork::ui::SnarlWidget::get_selected_nodes` or
-/// `egui_nodes::ui::snarl_canvas::SnarlWidget::get_selected_nodes` after
-/// [`NodesView::show`](crate::ui::view::NodesView::show), then map through [`NodesEditor::graph_node`](crate::NodesEditor).
+/// Reserved for selection mirrors. Use `egui_nodes::nodes_engine::canvas::NodesCanvas::get_selected_nodes` or
+/// `egui_nodes::ui::nodes_canvas::NodesCanvas::get_selected_nodes` after
+/// [`NodesView::show`](crate::ui::view::NodesView::show), then map through [`NodesEditor::core_node_id`](crate::NodesEditor).
 #[derive(Clone, Copy, Debug, Default)]
 pub struct SelectionState;
 
@@ -34,8 +35,8 @@ impl Default for NodesViewState {
     fn default() -> Self {
         Self {
             mode: InteractionMode::Select,
-            pan_zoom: PanZoomState::default(),
-            selection: SelectionState::default(),
+            pan_zoom: PanZoomState,
+            selection: SelectionState,
             inspect_before: None,
         }
     }

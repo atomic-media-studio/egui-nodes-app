@@ -1,3 +1,5 @@
+//! Pan/zoom, selection, and wire-drag state used by the nodes canvas.
+
 use egui::{
     Context, Id, Pos2, Rect, Ui, Vec2,
     ahash::HashSet,
@@ -6,9 +8,9 @@ use egui::{
 };
 use smallvec::{SmallVec, ToSmallVec, smallvec};
 
-use super::super::{InPinId, NodeId, OutPinId, Snarl};
+use super::super::{InPinId, NodeId, OutPinId, NodeGraph};
 
-use super::{SnarlWidget, transform_matching_points};
+use super::{NodesCanvas, transform_matching_points};
 
 pub type RowHeights = SmallVec<[f32; 8]>;
 
@@ -156,8 +158,8 @@ struct RectSelect {
     current: Pos2,
 }
 
-pub struct SnarlState {
-    /// Snarl viewport transform to global space.
+pub struct CanvasState {
+    /// NodeGraph viewport transform to global space.
     to_global: TSTransform,
 
     new_wires: Option<NewWires>,
@@ -220,14 +222,14 @@ impl SelectedNodes {
 }
 
 #[derive(Clone)]
-struct SnarlStateData {
+struct CanvasStateData {
     to_global: TSTransform,
     new_wires: Option<NewWires>,
     new_wires_menu: bool,
     rect_selection: Option<RectSelect>,
 }
 
-impl SnarlStateData {
+impl CanvasStateData {
     fn save(self, cx: &Context, id: Id) {
         cx.data_mut(|d| {
             d.insert_temp(id, self);
@@ -239,32 +241,32 @@ impl SnarlStateData {
     }
 }
 
-fn prune_selected_nodes<T>(selected_nodes: &mut SmallVec<[NodeId; 8]>, snarl: &Snarl<T>) -> bool {
+fn prune_selected_nodes<T>(selected_nodes: &mut SmallVec<[NodeId; 8]>, node_graph: &NodeGraph<T>) -> bool {
     let old_size = selected_nodes.len();
-    selected_nodes.retain(|node| snarl.nodes.contains(node.0));
+    selected_nodes.retain(|node| node_graph.nodes.contains(node.0));
     old_size != selected_nodes.len()
 }
 
-impl SnarlState {
+impl CanvasState {
     pub fn load<T>(
         cx: &Context,
         id: Id,
-        snarl: &Snarl<T>,
+        node_graph: &NodeGraph<T>,
         ui_rect: Rect,
         min_scale: f32,
         max_scale: f32,
     ) -> Self {
-        let Some(data) = SnarlStateData::load(cx, id) else {
+        let Some(data) = CanvasStateData::load(cx, id) else {
             cx.request_discard("Initial placing");
-            return Self::initial(id, snarl, ui_rect, min_scale, max_scale);
+            return Self::initial(id, node_graph, ui_rect, min_scale, max_scale);
         };
 
         let mut selected_nodes = SelectedNodes::load(cx, id).0;
-        let dirty = prune_selected_nodes(&mut selected_nodes, snarl);
+        let dirty = prune_selected_nodes(&mut selected_nodes, node_graph);
 
         let draw_order = DrawOrder::load(cx, id).0;
 
-        SnarlState {
+        CanvasState {
             to_global: data.to_global,
             new_wires: data.new_wires,
             new_wires_menu: data.new_wires_menu,
@@ -276,10 +278,10 @@ impl SnarlState {
         }
     }
 
-    fn initial<T>(id: Id, snarl: &Snarl<T>, ui_rect: Rect, min_scale: f32, max_scale: f32) -> Self {
+    fn initial<T>(id: Id, node_graph: &NodeGraph<T>, ui_rect: Rect, min_scale: f32, max_scale: f32) -> Self {
         let mut bb = Rect::NOTHING;
 
-        for (_, node) in &snarl.nodes {
+        for (_, node) in &node_graph.nodes {
             bb.extend_with(node.pos);
         }
 
@@ -296,7 +298,7 @@ impl SnarlState {
 
         let to_global = transform_matching_points(bb.center(), ui_rect.center(), scaling);
 
-        SnarlState {
+        CanvasState {
             to_global,
             new_wires: None,
             new_wires_menu: false,
@@ -309,11 +311,11 @@ impl SnarlState {
     }
 
     #[inline(always)]
-    pub fn store<T>(mut self, snarl: &Snarl<T>, cx: &Context) {
-        self.dirty |= prune_selected_nodes(&mut self.selected_nodes, snarl);
+    pub fn store<T>(mut self, node_graph: &NodeGraph<T>, cx: &Context) {
+        self.dirty |= prune_selected_nodes(&mut self.selected_nodes, node_graph);
 
         if self.dirty {
-            let data = SnarlStateData {
+            let data = CanvasStateData {
                 to_global: self.to_global,
                 new_wires: self.new_wires,
                 new_wires_menu: self.new_wires_menu,
@@ -503,8 +505,8 @@ impl SnarlState {
         self.new_wires_menu = true;
     }
 
-    pub(crate) fn update_draw_order<T>(&mut self, snarl: &Snarl<T>) -> Vec<NodeId> {
-        let mut node_ids = snarl
+    pub(crate) fn update_draw_order<T>(&mut self, node_graph: &NodeGraph<T>) -> Vec<NodeId> {
+        let mut node_ids = node_graph
             .nodes
             .iter()
             .map(|(id, _)| NodeId(id))
@@ -564,6 +566,7 @@ impl SnarlState {
         }
     }
 
+    #[allow(dead_code)]
     pub fn deselect_one_node(&mut self, node: NodeId) {
         if let Some(pos) = self.selected_nodes.iter().position(|n| *n == node) {
             self.selected_nodes.remove(pos);
@@ -571,6 +574,7 @@ impl SnarlState {
         }
     }
 
+    #[allow(dead_code)]
     pub fn deselect_many_nodes(&mut self, nodes: impl Iterator<Item = NodeId>) {
         for node in nodes {
             if let Some(pos) = self.selected_nodes.iter().position(|n| *n == node) {
@@ -615,33 +619,33 @@ impl SnarlState {
     }
 }
 
-impl SnarlWidget {
-    /// Returns list of nodes selected in the UI for the `SnarlWidget` with same id.
+impl NodesCanvas {
+    /// Returns list of nodes selected in the UI for the `NodesCanvas` with same id.
     ///
-    /// Use same `Ui` instance that was used in [`SnarlWidget::show`].
+    /// Use same `Ui` instance that was used in [`NodesCanvas::show`].
     #[must_use]
     #[inline]
     pub fn get_selected_nodes(self, ui: &Ui) -> Vec<NodeId> {
         self.get_selected_nodes_at(ui.id(), ui.ctx())
     }
 
-    /// Returns list of nodes selected in the UI for the `SnarlWidget` with same id.
+    /// Returns list of nodes selected in the UI for the `NodesCanvas` with same id.
     ///
-    /// `ui_id` must be the Id of the `Ui` instance that was used in [`SnarlWidget::show`].
+    /// `ui_id` must be the Id of the `Ui` instance that was used in [`NodesCanvas::show`].
     #[must_use]
     #[inline]
     pub fn get_selected_nodes_at(self, ui_id: Id, ctx: &Context) -> Vec<NodeId> {
-        let snarl_id = self.get_id(ui_id);
+        let canvas_id = self.get_id(ui_id);
 
-        ctx.data(|d| d.get_temp::<SelectedNodes>(snarl_id).unwrap_or_default().0)
+        ctx.data(|d| d.get_temp::<SelectedNodes>(canvas_id).unwrap_or_default().0)
             .into_vec()
     }
 }
 
-/// Returns nodes selected in the UI for the `SnarlWidget` with same ID.
+/// Returns nodes selected in the UI for the `NodesCanvas` with same ID.
 ///
-/// Only works if [`SnarlWidget::id`] was used.
-/// For other cases construct [`SnarlWidget`] and use [`SnarlWidget::get_selected_nodes`] or [`SnarlWidget::get_selected_nodes_at`].
+/// Only works if [`NodesCanvas::id`] was used.
+/// For other cases construct [`NodesCanvas`] and use [`NodesCanvas::get_selected_nodes`] or [`NodesCanvas::get_selected_nodes_at`].
 #[must_use]
 #[inline]
 pub fn get_selected_nodes(id: Id, ctx: &Context) -> Vec<NodeId> {

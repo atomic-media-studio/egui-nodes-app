@@ -1,13 +1,13 @@
-//! Snarl visual tuning — uses types from the fork via [`egui_nodes::egui_snarl_fork`].
+//! Node graph canvas visual tuning — types from [`egui_nodes::nodes_engine::canvas`].
 
 use eframe::egui;
-use egui_nodes::egui_snarl_fork::ui::{
+use egui_nodes::nodes_engine::canvas::{
     BackgroundPattern, GridRenderMode, NodeLayout, PinPlacement, PinShape, SelectionStyle,
-    SnarlStyle, WireLayer, WireStyle,
+    CanvasStyle, WireLayer, WireStyle,
 };
 
-pub fn default_snarl_style() -> SnarlStyle {
-    SnarlStyle {
+pub fn default_canvas_style() -> CanvasStyle {
+    CanvasStyle {
         node_layout: Some(NodeLayout::coil()),
         collapsible: Some(true),
         pin_size: Some(8.0),
@@ -24,7 +24,7 @@ pub fn default_snarl_style() -> SnarlStyle {
         max_scale: Some(2.0),
         centering: Some(true),
         wire_smoothness: Some(0.0),
-        ..SnarlStyle::new()
+        ..CanvasStyle::new()
     }
 }
 
@@ -64,9 +64,9 @@ fn edit_corner_radius(ui: &mut egui::Ui, label: &str, radius: &mut egui::CornerR
     });
 }
 
-pub fn style_controls_ui(ui: &mut egui::Ui, style: &mut SnarlStyle) {
+pub fn style_controls_ui(ui: &mut egui::Ui, style: &mut CanvasStyle) {
     if ui.button("Reset to defaults").clicked() {
-        *style = default_snarl_style();
+        *style = default_canvas_style();
     }
     ui.separator();
 

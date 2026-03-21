@@ -1,3 +1,5 @@
+//! Wire geometry, hit-testing, and painting between pins.
+
 use core::f32;
 
 use egui::{Context, Id, Pos2, Rect, Shape, Stroke, Ui, ahash::HashMap, cache::CacheTrait, pos2};
@@ -7,10 +9,9 @@ use super::super::{InPinId, OutPinId};
 const MAX_CURVE_SAMPLES: usize = 100;
 
 /// Layer where wires are rendered.
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 #[cfg_attr(feature = "egui-probe", derive(egui_probe::EguiProbe))]
-#[derive(Default)]
 pub enum WireLayer {
     /// Wires are rendered behind nodes.
     /// This is default.
@@ -24,16 +25,16 @@ pub enum WireLayer {
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
 pub enum WireId {
     Connected {
-        snarl_id: Id,
+        canvas_id: Id,
         out_pin: OutPinId,
         in_pin: InPinId,
     },
     NewInput {
-        snarl_id: Id,
+        canvas_id: Id,
         in_pin: InPinId,
     },
     NewOutput {
-        snarl_id: Id,
+        canvas_id: Id,
         out_pin: OutPinId,
     },
 }

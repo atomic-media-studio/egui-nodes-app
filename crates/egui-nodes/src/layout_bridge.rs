@@ -1,3 +1,5 @@
+//! Converts between [`core_graph::Layout2d`] and egui [`egui::Pos2`] for the editor.
+
 use egui::Pos2;
 
 use core_graph::Layout2d;

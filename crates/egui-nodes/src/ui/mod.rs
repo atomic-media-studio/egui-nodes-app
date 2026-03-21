@@ -1,8 +1,8 @@
-//! Editor UI: graph engine, session state, canvas re-exports, view, styling.
+//! Editor UI — `editor` (core graph ↔ `NodeGraph`), `nodes_engine` (canvas), `view`, `style`, `state`.
 
 pub mod editor;
 pub mod nodes_engine;
-pub use nodes_engine::canvas as snarl_canvas;
+pub use nodes_engine::canvas as nodes_canvas;
 pub mod state;
 pub mod style;
 pub mod view;

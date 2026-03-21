@@ -1,10 +1,12 @@
-//! **egui-nodes** — [`NodesEditor`] + [`NodesView`] on top of [`core_graph`] and [`ui::nodes_engine`].
-//! The portable graph model lives in **`core-graph`**; this crate is the egui / nodes layer.
+//! **egui-nodes** — egui node editor on top of [`core_graph`].
 //!
 //! ## Layers
-//! - **`core-graph`** — `Graph<N, E>`, [`Node`], [`Link`], ids, [`Executor`](core_graph::Executor) (dependency; re-exported below).
-//! - [`NodesEditor`](crate::NodesEditor), [`NodeData`], sync with [`Snarl`](crate::ui::nodes_engine::Snarl).
-//! - [`ui`] — graph engine, editor session, canvas, view state, and styling.
+//! - **`core-graph`** (re-exported) — headless [`Graph`], [`Link`], ids, optional [`Executor`](core_graph::Executor) and
+//!   evaluation. No egui.
+//! - **This crate** — [`NodesEditor`] / [`NodesView`], [`NodeGraph`](crate::ui::nodes_engine::NodeGraph),
+//!   canvas ([`crate::ui::nodes_engine::canvas`]), and styling. [`NodeData`] maps slab nodes to
+//!   [`core_graph::NodeId`].
+//! - **[`ui`]** — editor session, shell viewer, and the nodes engine.
 
 pub mod io;
 pub mod layout_bridge;
@@ -25,17 +27,8 @@ pub use ui::{
 /// Re-export the headless graph crate for `use egui_nodes::core_graph::…` or version pinning.
 pub use core_graph;
 
-/// Same module layout as the old `egui-snarl-fork` crate: graph types plus a `ui` submodule for the
-/// widget (`SnarlWidget`, `SnarlStyle`, …).
-pub mod egui_snarl_fork {
-    pub use crate::ui::nodes_engine::*;
-    pub mod ui {
-        pub use crate::ui::nodes_engine::canvas::*;
-    }
-}
+/// Interactive node graph and canvas — alias of [`crate::ui::nodes_engine`].
+pub use ui::nodes_engine;
 
-/// Previous name for [`NodesEditor`].
-pub type SnarlAdapter<N, E> = NodesEditor<N, E>;
-
-/// Previous name for [`NodesEditorError`].
+/// Alias for [`NodesEditorError`] (older name).
 pub type AdapterError = NodesEditorError;

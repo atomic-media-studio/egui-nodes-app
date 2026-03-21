@@ -1,5 +1,5 @@
-//! Playground: depends only on [`egui_nodes`]. Snarl lives under `egui_nodes::ui::nodes_engine`.
-//! Snarl style UI lives in [`style_panel`] so this file stays the main entry you edit first.
+//! Playground: depends only on [`egui_nodes`]. NodeGraph lives under `egui_nodes::ui::nodes_engine`.
+//! NodeGraph style UI lives in [`style_panel`] so this file stays the main entry you edit first.
 
 mod style_panel;
 
@@ -8,7 +8,10 @@ use std::rc::Rc;
 
 use eframe::egui;
 use egui_phosphor::regular;
-use egui_nodes::egui_snarl_fork::{InPin, OutPin, Snarl, ui::{PinInfo, SnarlViewer}};
+use egui_nodes::nodes_engine::{
+    canvas::{NodeGraphViewer, PinInfo},
+    InPin, NodeGraph, OutPin,
+};
 use egui_nodes::{
     GraphChanges, InteractionMode, Layout2d, NodeData, NodesEditor, NodesShellViewer, NodesStyle,
     NodesView, NodesViewState,
@@ -53,7 +56,7 @@ impl DemoViewer {
     }
 }
 
-impl SnarlViewer<NodeData<DemoNode>> for DemoViewer {
+impl NodeGraphViewer<NodeData<DemoNode>> for DemoViewer {
     fn title(&mut self, node: &NodeData<DemoNode>) -> String {
         match &node.user {
             DemoNode::Number(_) => "Number".to_owned(),
@@ -73,11 +76,11 @@ impl SnarlViewer<NodeData<DemoNode>> for DemoViewer {
         &mut self,
         pin: &InPin,
         ui: &mut egui::Ui,
-        snarl: &mut Snarl<NodeData<DemoNode>>,
+        node_graph: &mut NodeGraph<NodeData<DemoNode>>,
     ) -> PinInfo {
         match &*pin.remotes {
             [] => ui.label("None"),
-            [remote] => match &snarl[remote.node].user {
+            [remote] => match &node_graph[remote.node].user {
                 DemoNode::Number(value) => ui.label(format!("{value:.3}")),
                 DemoNode::Sink => ui.label("Invalid"),
             },
@@ -98,9 +101,9 @@ impl SnarlViewer<NodeData<DemoNode>> for DemoViewer {
         &mut self,
         pin: &OutPin,
         ui: &mut egui::Ui,
-        snarl: &mut Snarl<NodeData<DemoNode>>,
+        node_graph: &mut NodeGraph<NodeData<DemoNode>>,
     ) -> PinInfo {
-        match &mut snarl.get_node_mut(pin.id.node).unwrap().user {
+        match &mut node_graph.get_node_mut(pin.id.node).unwrap().user {
             DemoNode::Number(value) => {
                 ui.add(egui::DragValue::new(value).speed(0.1));
             }
@@ -111,7 +114,7 @@ impl SnarlViewer<NodeData<DemoNode>> for DemoViewer {
         PinInfo::circle()
     }
 
-    fn has_graph_menu(&mut self, _pos: egui::Pos2, _snarl: &mut Snarl<NodeData<DemoNode>>) -> bool {
+    fn has_graph_menu(&mut self, _pos: egui::Pos2, _node_graph: &mut NodeGraph<NodeData<DemoNode>>) -> bool {
         true
     }
 
@@ -119,7 +122,7 @@ impl SnarlViewer<NodeData<DemoNode>> for DemoViewer {
         &mut self,
         pos: egui::Pos2,
         ui: &mut egui::Ui,
-        _snarl: &mut Snarl<NodeData<DemoNode>>,
+        _node_graph: &mut NodeGraph<NodeData<DemoNode>>,
     ) {
         if ui.button("Add Number").clicked() {
             let mut e = self.editor.borrow_mut();
@@ -141,7 +144,7 @@ impl SnarlViewer<NodeData<DemoNode>> for DemoViewer {
     fn current_transform(
         &mut self,
         to_global: &mut egui::emath::TSTransform,
-        _snarl: &mut Snarl<NodeData<DemoNode>>,
+        _node_graph: &mut NodeGraph<NodeData<DemoNode>>,
     ) {
         if self.initial_zoom_pending && to_global.scaling > 0.0 {
             to_global.scaling *= 0.85;
@@ -173,7 +176,7 @@ impl Default for TemplateApp {
         init_demo(&mut editor.borrow_mut());
 
         let mut nodes_style = NodesStyle::new();
-        nodes_style.snarl = style_panel::default_snarl_style();
+        nodes_style.canvas = style_panel::default_canvas_style();
 
         let viewer = NodesShellViewer::new(DemoViewer::new(Rc::clone(&editor)));
 
@@ -238,14 +241,14 @@ impl eframe::App for TemplateApp {
             }
         });
 
-        egui::SidePanel::left("snarl-controls")
+        egui::SidePanel::left("node_graph-controls")
             .resizable(true)
             .default_width(320.0)
             .min_width(220.0)
             .show(ctx, |ui| {
-                ui.label("Snarl style (engine: egui_nodes::ui::nodes_engine)");
+                ui.label("NodeGraph style (engine: egui_nodes::ui::nodes_engine)");
                 egui::ScrollArea::vertical().show(ui, |ui| {
-                    style_panel::style_controls_ui(ui, &mut self.nodes_style.snarl);
+                    style_panel::style_controls_ui(ui, &mut self.nodes_style.canvas);
                 });
                 ui.separator();
                 ui.label("Last graph activity:");
@@ -263,7 +266,7 @@ impl eframe::App for TemplateApp {
                 &self.nodes_style,
                 &mut self.viewer,
             )
-            .with_snarl_id(egui::Id::new("main-snarl-panel"));
+            .with_canvas_id(egui::Id::new("main-nodes-canvas-panel"));
             let _ = nodes_view.show(ui);
             let changes = ed.take_graph_changes();
             self.last_graph_changes = format_graph_changes(&changes);
