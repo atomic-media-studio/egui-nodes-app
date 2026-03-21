@@ -6,19 +6,21 @@ Repository structure:
 
 ```text
 ├── Cargo.toml                 # workspace root
-├── src/                       # demo app (default `cargo run`)
+├── src/                       # demo binary (default `cargo run`)
 │   ├── main.rs
-│   └── style_panel.rs
+│   └── style_panel.rs         # canvas / NodesStyle tuning for the demo
 └── crates/
-    ├── dag-lib/src/           # headless Graph, DAG checks, Executor, …
-    └── egui-nodes/src/
-        ├── lib.rs, io.rs
-        └── ui/                # editor/, nodes_engine/canvas/, state, style, view
+    ├── dag-lib/               # Rust crate `dag_lib`
+    └── egui-nodes/            # Rust crate `egui_nodes`
+        └── src/
+            ├── lib.rs         # public re-exports (see below)
+            ├── io.rs          # load_graph / save_graph
+            └── ui/            # editor, nodes_engine (NodeGraph + canvas), view, style, …
 ```
 
-- **`dag-lib`** (`[crates/dag-lib](crates/dag-lib)`) — portable directed graph (`Node`/`Link`/`Pin`), [`dependency_graph_is_acyclic`](crates/dag-lib/src/eval.rs), [`compute_topological_order`](crates/dag-lib/src/eval.rs), [`Executor`](crates/dag-lib/src/eval.rs) / [`NodeEvaluator`](crates/dag-lib/src/eval.rs) / [`Value`](crates/dag-lib/src/eval.rs). Optional `serde`. No egui.
-- **`egui-nodes`** (`[crates/egui-nodes](crates/egui-nodes)`) — import as `egui_nodes::…`. Depends on **`dag-lib`** and egui; re-exports [`dag_lib`](crates/egui-nodes/src/lib.rs) and [`nodes_engine`](crates/egui-nodes/src/lib.rs) (interactive [`NodeGraph`](crates/egui-nodes/src/ui/nodes_engine/mod.rs) + canvas).
-- **Playground:** [`src/main.rs`](src/main.rs) — `cargo run` from the repo root; canvas tuning in [`style_panel.rs`](src/style_panel.rs).
+- **`dag-lib`** (`[crates/dag-lib](crates/dag-lib)`) — Headless **directed** graph: [`Graph`](crates/dag-lib/src/model.rs), [`Node`](crates/dag-lib/src/model.rs) / [`Link`](crates/dag-lib/src/model.rs) / [`Pin`](crates/dag-lib/src/model.rs), opaque ids ([`NodeId`](crates/dag-lib/src/ids.rs), [`PinId`](crates/dag-lib/src/ids.rs), [`LinkId`](crates/dag-lib/src/ids.rs)), [`dependency_graph_is_acyclic`](crates/dag-lib/src/eval.rs), [`compute_topological_order`](crates/dag-lib/src/eval.rs), [`Executor`](crates/dag-lib/src/eval.rs) / [`NodeEvaluator`](crates/dag-lib/src/eval.rs) / [`Value`](crates/dag-lib/src/eval.rs). Optional **`serde`**. No egui.
+- **`egui-nodes`** (`[crates/egui-nodes](crates/egui-nodes)`) — Use **`egui_nodes::…`**. Depends on **`dag-lib`** + **egui**. Re-exports **`dag_lib`** (also as `egui_nodes::dag_lib`), **`egui_nodes::nodes_engine`** (slab [`NodeGraph`](crates/egui-nodes/src/ui/nodes_engine/mod.rs), canvas under [`nodes_engine::canvas`](crates/egui-nodes/src/ui/nodes_engine/canvas/mod.rs)), and the UI surface in [`lib.rs`](crates/egui-nodes/src/lib.rs): [`NodesEditor`](crates/egui-nodes/src/ui/editor/mod.rs), [`NodesView`](crates/egui-nodes/src/ui/view.rs), [`NodeData`](crates/egui-nodes/src/ui/editor/mod.rs), [`GraphChanges`](crates/egui-nodes/src/ui/editor/mod.rs), [`NodesStyle`](crates/egui-nodes/src/ui/style.rs), [`layout_to_pos2`](crates/egui-nodes/src/ui/editor/mod.rs) / [`pos2_to_layout`](crates/egui-nodes/src/ui/editor/mod.rs), [`load_graph`](crates/egui-nodes/src/io.rs) / [`save_graph`](crates/egui-nodes/src/io.rs), style hooks ([`NodeStyleHook`](crates/egui-nodes/src/ui/style.rs), [`EdgeStyleHook`](crates/egui-nodes/src/ui/style.rs)), etc.
+- **Playground** (this repo’s root package **`egui-nodes-app`**): [`src/main.rs`](src/main.rs) — demo app; [`style_panel.rs`](src/style_panel.rs) edits [`NodesStyle`](crates/egui-nodes/src/ui/style.rs) / [`CanvasStyle`](crates/egui-nodes/src/ui/nodes_engine/canvas/mod.rs) for the canvas.
 
 ## Run
 
@@ -26,24 +28,24 @@ Repository structure:
 cargo run
 ```
 
-The workspace’s [`default-members`](Cargo.toml) is `["."]`, so `cargo run` from the repo root runs the **`egui-nodes-app`** binary ([`src/main.rs`](src/main.rs)).
+[`default-members`](Cargo.toml) is `["."]`, so `cargo run` at the repo root builds and runs the **`egui-nodes-app`** binary ([`src/main.rs`](src/main.rs)).
 
 ## Dependencies
 
 | Crate | Role | Depends on (summary) |
 | --- | --- | --- |
-| [`dag-lib`](crates/dag-lib) | Headless graph + [`Executor`](crates/dag-lib/src/eval.rs) | Optional [`serde`](crates/dag-lib/Cargo.toml) only |
-| [`egui-nodes`](crates/egui-nodes) | UI: [`NodeGraph`](crates/egui-nodes/src/ui/nodes_engine/mod.rs), canvas, [`NodesEditor`](crates/egui-nodes/src/ui/editor/mod.rs) | [`dag-lib`](crates/dag-lib), `egui`, and other deps in [`crates/egui-nodes/Cargo.toml`](crates/egui-nodes/Cargo.toml) |
-| **`egui-nodes-app`** (root [`Cargo.toml`](Cargo.toml) `[package]`) | Demo window + style panel | [`egui-nodes`](crates/egui-nodes), `eframe`, `egui` |
+| [`dag-lib`](crates/dag-lib) (import **`dag_lib`**) | Headless graph, evaluation, DAG helpers | Optional [`serde`](crates/dag-lib/Cargo.toml) |
+| [`egui-nodes`](crates/egui-nodes) (import **`egui_nodes`**) | Editor + canvas + re-exported **`dag_lib`** | [`dag-lib`](crates/dag-lib), `egui`, etc. — [`crates/egui-nodes/Cargo.toml`](crates/egui-nodes/Cargo.toml) |
+| **`egui-nodes-app`** (workspace root [`Cargo.toml`](Cargo.toml) `[package]`) | Demo only | [`egui-nodes`](crates/egui-nodes), `eframe`, `egui` |
 
-Apps usually depend on **`egui-nodes`** only; headless tools can use **`dag-lib`** alone.
+Applications typically depend on **`egui-nodes`** (and use **`dag_lib`** through it or as a direct dep). Tools with no UI can depend on **`dag-lib`** alone.
 
 ## Architecture
 
-**[`dag-lib`](crates/dag-lib)** — **Directed** dataflow graph: each [`Link`](crates/dag-lib/src/model.rs) goes from an **output** pin to an **input** pin. **DAG** (acyclic) in the usual graph-theory sense iff [`dependency_graph_is_acyclic`](crates/dag-lib/src/eval.rs) is true (Kahn completes). The editor may temporarily store cycles; [`compute_topological_order`](crates/dag-lib/src/eval.rs) then appends unsorted nodes so [`Executor`](crates/dag-lib/src/eval.rs) still runs. **Ids:** [`NodeId`](crates/dag-lib/src/ids.rs) / [`PinId`](crates/dag-lib/src/ids.rs) / [`LinkId`](crates/dag-lib/src/ids.rs) are global opaque `u32` handles — not string keys (see crate docs).
+**[`dag-lib`](crates/dag-lib)** — Directed dataflow: each [`Link`](crates/dag-lib/src/model.rs) is output-pin → input-pin. The graph is a **DAG** iff [`dependency_graph_is_acyclic`](crates/dag-lib/src/eval.rs) holds. The UI may hold temporary cycles; [`compute_topological_order`](crates/dag-lib/src/eval.rs) still yields an order for [`Executor`](crates/dag-lib/src/eval.rs). [`NodeId`](crates/dag-lib/src/ids.rs) / [`PinId`](crates/dag-lib/src/ids.rs) / [`LinkId`](crates/dag-lib/src/ids.rs) are opaque numeric ids (see crate docs).
 
-**[`egui-nodes`](crates/egui-nodes)** — [`NodesEditor`](crates/egui-nodes/src/ui/editor/mod.rs) syncs canonical [`Graph`](crates/dag-lib/src/model.rs) with the slab [`NodeGraph`](crates/egui-nodes/src/ui/nodes_engine/mod.rs) (canvas indices ↔ [`PinId`](crates/dag-lib/src/ids.rs)); wire drawing and hit-tests stay in the UI crate. [`layout_to_pos2`](crates/egui-nodes/src/ui/editor/mod.rs) bridges [`Layout2d`](crates/dag-lib/src/layout.rs) and egui. After [`NodesView::show`](crates/egui-nodes/src/ui/view.rs), use [`take_graph_changes`](crates/egui-nodes/src/ui/editor/mod.rs).
+**[`egui-nodes`](crates/egui-nodes)** — [`NodesEditor`](crates/egui-nodes/src/ui/editor/mod.rs) owns canonical [`Graph`](crates/dag-lib/src/model.rs) plus a slab [`NodeGraph`](crates/egui-nodes/src/ui/nodes_engine/mod.rs) for egui; [`NodeData`](crates/egui-nodes/src/ui/editor/mod.rs) maps nodes to payloads. Canvas (pan/zoom, wires, selection, [`NodeGraphViewer`](crates/egui-nodes/src/ui/nodes_engine/canvas/node_viewer.rs)) lives under **`egui_nodes::nodes_engine`**. [`layout_to_pos2`](crates/egui-nodes/src/ui/editor/mod.rs) / [`pos2_to_layout`](crates/egui-nodes/src/ui/editor/mod.rs) connect [`Layout2d`](crates/dag-lib/src/layout.rs) to egui space. After [`NodesView::show`](crates/egui-nodes/src/ui/view.rs), read edits via [`take_graph_changes`](crates/egui-nodes/src/ui/editor/mod.rs) on the editor.
 
-**Root** — Demo shell only; no graph semantics beyond the library.
+**Root package** — Demo shell; it is not a library.
 
-**Tests:** `graph_json_roundtrip` in [`model.rs`](crates/dag-lib/src/model.rs) — `cargo test -p dag-lib --features serde`.
+**Tests:** e.g. `graph_json_roundtrip` in [`model.rs`](crates/dag-lib/src/model.rs) — `cargo test -p dag-lib --features serde`.
