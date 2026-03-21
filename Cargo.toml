@@ -1,9 +1,10 @@
-[package]
-name = "egui_app"
-version = "0.1.0"
-edition = "2024"
-
-[dependencies]
-eframe = "0.33.3"
-egui-phosphor = "0.11.0"
-egui-snarl = { path = "crates/egui-snarl" }
+[workspace]
+members = [
+    "crates/egui-snarl",
+    "crates/nodes-core",
+    "crates/nodes-snarl",
+    "crates/nodes-egui",
+    "crates/nodes-app",
+]
+default-members = ["crates/nodes-app"]
+resolver = "2"

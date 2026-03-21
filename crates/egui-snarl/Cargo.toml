@@ -8,7 +8,6 @@ license = "MIT OR Apache-2.0"
 documentation = "https://docs.rs/egui-snarl"
 repository = "https://github.com/zakarumych/egui-snarl"
 description = "Node-graphs for egui"
-readme = "README.md"
 
 [features]
 serde = ["dep:serde", "egui/serde", "slab/serde"]
@@ -27,7 +26,3 @@ eframe = { version = "0.33", features = ["serde", "persistence"] }
 egui_extras = { version = "0.33", features = ["all_loaders"] }
 serde_json = "1"
 syn = "2"
-
-[[example]]
-name = "demo"
-required-features = ["serde", "egui-probe"]
