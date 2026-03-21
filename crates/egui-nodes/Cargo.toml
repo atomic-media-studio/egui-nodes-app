@@ -1,0 +1,16 @@
+[package]
+name = "egui-nodes"
+version = "0.1.0"
+edition = "2024"
+description = "Headless graph model + Snarl adapter + NodesView — users need not depend on egui-snarl directly"
+
+[features]
+default = ["serde"]
+serde = ["dep:serde"]
+
+[dependencies]
+anyhow = "1"
+egui = "0.33"
+egui-snarl = { path = "../egui-snarl-fork", package = "egui-snarl" }
+serde = { version = "1", optional = true, features = ["derive"] }
+serde_json = "1"

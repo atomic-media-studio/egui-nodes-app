@@ -1,8 +1,6 @@
-//! Map between [`nodes_core::Layout2d`] and egui positions.
-
 use egui::Pos2;
 
-use nodes_core::Layout2d;
+use crate::graph::Layout2d;
 
 #[inline]
 pub fn layout_to_pos2(layout: Layout2d) -> Pos2 {

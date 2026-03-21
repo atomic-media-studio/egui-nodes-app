@@ -4,7 +4,7 @@ use anyhow::Context;
 use serde::Serialize;
 use serde::de::DeserializeOwned;
 
-/// Writes `value` as pretty-printed JSON (any serializable type, including [`crate::SemanticGraph`]).
+/// Pretty JSON snapshot of any serializable value (e.g. [`crate::graph::Graph`]).
 pub fn save_graph<G: Serialize>(graph: &G, path: impl AsRef<Path>) -> anyhow::Result<()> {
     let path = path.as_ref();
     if let Some(parent) = path.parent() {
@@ -15,7 +15,6 @@ pub fn save_graph<G: Serialize>(graph: &G, path: impl AsRef<Path>) -> anyhow::Re
     Ok(())
 }
 
-/// Reads JSON into `G`.
 pub fn load_graph<G: DeserializeOwned>(path: impl AsRef<Path>) -> anyhow::Result<G> {
     let path = path.as_ref();
     let bytes = std::fs::read(path).with_context(|| format!("read {}", path.display()))?;

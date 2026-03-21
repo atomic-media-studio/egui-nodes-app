@@ -1,4 +1,4 @@
-//! Lightweight template: semantic graph + Snarl bridge + `nodes-egui` shell over vendored `egui-snarl`.
+//! Demo app: depends only on [`egui_nodes`] — no direct Snarl imports in application code.
 
 mod demo;
 mod style_panel;
@@ -8,13 +8,11 @@ use std::rc::Rc;
 
 use eframe::egui;
 use egui_phosphor::regular;
-use nodes_egui::{
-    InteractionMode, NodesShellViewer, NodesStyle, NodesView, NodesViewState,
+use egui_nodes::{
+    InteractionMode, NodesShellViewer, NodesStyle, NodesView, NodesViewState, SnarlAdapter,
 };
-use nodes_snarl::egui_snarl::Snarl;
-use nodes_snarl::{SemanticGraph, SemanticSnarlBridge};
 
-use crate::demo::{DemoViewer, init_demo_graph};
+use crate::demo::{DemoViewer, init_demo};
 
 fn main() -> eframe::Result<()> {
     let options = eframe::NativeOptions {
@@ -22,7 +20,7 @@ fn main() -> eframe::Result<()> {
         ..Default::default()
     };
     eframe::run_native(
-        "nodes library template",
+        "egui-nodes template",
         options,
         Box::new(|cc| {
             let mut fonts = egui::FontDefinitions::default();
@@ -35,9 +33,7 @@ fn main() -> eframe::Result<()> {
 }
 
 struct TemplateApp {
-    graph: Rc<RefCell<SemanticGraph<demo::DemoNode, ()>>>,
-    bridge: Rc<RefCell<SemanticSnarlBridge>>,
-    snarl: Snarl<demo::DemoNode>,
+    adapter: Rc<RefCell<SnarlAdapter<demo::DemoNode, ()>>>,
     nodes_style: NodesStyle,
     view_state: NodesViewState,
     viewer: NodesShellViewer<DemoViewer>,
@@ -45,27 +41,16 @@ struct TemplateApp {
 
 impl Default for TemplateApp {
     fn default() -> Self {
-        let graph = Rc::new(RefCell::new(SemanticGraph::new()));
-        let bridge = Rc::new(RefCell::new(SemanticSnarlBridge::new()));
-        let mut snarl = Snarl::new();
-        init_demo_graph(
-            &mut graph.borrow_mut(),
-            &mut bridge.borrow_mut(),
-            &mut snarl,
-        );
+        let adapter = Rc::new(RefCell::new(SnarlAdapter::new()));
+        init_demo(&mut adapter.borrow_mut());
 
         let mut nodes_style = NodesStyle::new();
         nodes_style.snarl = style_panel::default_snarl_style();
 
-        let viewer = NodesShellViewer::new(DemoViewer::new(
-            Rc::clone(&graph),
-            Rc::clone(&bridge),
-        ));
+        let viewer = NodesShellViewer::new(DemoViewer::new(Rc::clone(&adapter)));
 
         Self {
-            graph,
-            bridge,
-            snarl,
+            adapter,
             nodes_style,
             view_state: NodesViewState::default(),
             viewer,
@@ -76,7 +61,7 @@ impl Default for TemplateApp {
 impl eframe::App for TemplateApp {
     fn update(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
         egui::TopBottomPanel::top("top-bar").show(ctx, |ui| {
-            ui.heading("nodes library template");
+            ui.heading("egui-nodes template");
             ui.horizontal(|ui| {
                 let _ = ui.button(regular::ALARM);
                 let _ = ui.button(regular::AIRPLANE);
@@ -115,21 +100,22 @@ impl eframe::App for TemplateApp {
             .default_width(320.0)
             .min_width(220.0)
             .show(ctx, |ui| {
-                ui.label("Snarl panel (vendored egui-snarl)");
+                ui.label("Snarl style (engine: egui-snarl-fork)");
                 egui::ScrollArea::vertical().show(ui, |ui| {
                     style_panel::style_controls_ui(ui, &mut self.nodes_style.snarl);
                 });
             });
 
         egui::CentralPanel::default().show(ctx, |ui| {
-            let mut nodes_view = NodesView::new(&mut self.view_state, &self.nodes_style)
-                .with_snarl_id(egui::Id::new("main-snarl-panel"));
-            let _ = nodes_view.show(&mut self.snarl, &mut self.viewer, ui);
-
-            let mut g = self.graph.borrow_mut();
-            self.bridge
-                .borrow()
-                .sync_graph_from_snarl(&mut *g, &self.snarl);
+            let mut adapter = self.adapter.borrow_mut();
+            let mut nodes_view = NodesView::new(
+                &mut *adapter,
+                &mut self.view_state,
+                &self.nodes_style,
+                &mut self.viewer,
+            )
+            .with_snarl_id(egui::Id::new("main-snarl-panel"));
+            let _ = nodes_view.show(ui);
         });
     }
 }

@@ -11,12 +11,21 @@ pub enum InteractionMode {
     Inspect,
 }
 
-/// View state kept separate from the semantic graph: modes, later marquee/overlay flags, etc.
-/// Selection and pan/zoom live in egui-snarl’s persisted widget state; use
-/// [`egui_snarl::ui::SnarlWidget::get_selected_nodes`] after `NodesView::show` when you need IDs.
+/// Reserved for lifting pan/zoom into app state. Today Snarl stores the viewport transform internally.
+#[derive(Clone, Copy, Debug, Default)]
+pub struct PanZoomState;
+
+/// Reserved for selection mirrors. Use `egui_snarl::ui::SnarlWidget::get_selected_nodes` after
+/// [`NodesView::show`](crate::view::NodesView::show), then map through [`SnarlAdapter::graph_node`](crate::SnarlAdapter).
+#[derive(Clone, Copy, Debug, Default)]
+pub struct SelectionState;
+
+/// View state separate from the headless [`crate::graph::Graph`]: modes and future overlays.
 #[derive(Clone, Debug)]
 pub struct NodesViewState {
     pub mode: InteractionMode,
+    pub pan_zoom: PanZoomState,
+    pub selection: SelectionState,
     inspect_before: Option<InteractionMode>,
 }
 
@@ -24,6 +33,8 @@ impl Default for NodesViewState {
     fn default() -> Self {
         Self {
             mode: InteractionMode::Select,
+            pan_zoom: PanZoomState::default(),
+            selection: SelectionState::default(),
             inspect_before: None,
         }
     }

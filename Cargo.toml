@@ -1,9 +1,7 @@
 [workspace]
 members = [
-    "crates/egui-snarl",
-    "crates/nodes-core",
-    "crates/nodes-snarl",
-    "crates/nodes-egui",
+    "crates/egui-snarl-fork",
+    "crates/egui-nodes",
     "crates/nodes-app",
 ]
 default-members = ["crates/nodes-app"]

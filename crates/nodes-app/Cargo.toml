@@ -6,6 +6,4 @@ edition = "2024"
 [dependencies]
 eframe = "0.33.3"
 egui-phosphor = "0.11.0"
-nodes-core = { path = "../nodes-core" }
-nodes-egui = { path = "../nodes-egui" }
-nodes-snarl = { path = "../nodes-snarl" }
+egui-nodes = { path = "../egui-nodes" }

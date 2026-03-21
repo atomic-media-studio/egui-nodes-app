@@ -2,8 +2,8 @@ use std::cell::RefCell;
 use std::rc::Rc;
 
 use eframe::egui;
-use nodes_snarl::egui_snarl::{InPin, OutPin, Snarl, ui::{PinInfo, SnarlViewer}};
-use nodes_snarl::{Layout2d, SemanticGraph, SemanticNode, SemanticSnarlBridge};
+use egui_nodes::egui_snarl::{InPin, OutPin, Snarl, ui::{PinInfo, SnarlViewer}};
+use egui_nodes::{Layout2d, NodeData, SnarlAdapter};
 
 #[derive(Clone)]
 pub enum DemoNode {
@@ -12,34 +12,29 @@ pub enum DemoNode {
 }
 
 pub struct DemoViewer {
-    pub graph: Rc<RefCell<SemanticGraph<DemoNode, ()>>>,
-    pub bridge: Rc<RefCell<SemanticSnarlBridge>>,
+    pub adapter: Rc<RefCell<SnarlAdapter<DemoNode, ()>>>,
     initial_zoom_pending: bool,
 }
 
 impl DemoViewer {
-    pub fn new(
-        graph: Rc<RefCell<SemanticGraph<DemoNode, ()>>>,
-        bridge: Rc<RefCell<SemanticSnarlBridge>>,
-    ) -> Self {
+    pub fn new(adapter: Rc<RefCell<SnarlAdapter<DemoNode, ()>>>) -> Self {
         Self {
-            graph,
-            bridge,
+            adapter,
             initial_zoom_pending: true,
         }
     }
 }
 
-impl SnarlViewer<DemoNode> for DemoViewer {
-    fn title(&mut self, node: &DemoNode) -> String {
-        match node {
+impl SnarlViewer<NodeData<DemoNode>> for DemoViewer {
+    fn title(&mut self, node: &NodeData<DemoNode>) -> String {
+        match &node.user {
             DemoNode::Number(_) => "Number".to_owned(),
             DemoNode::Sink => "Sink".to_owned(),
         }
     }
 
-    fn inputs(&mut self, node: &DemoNode) -> usize {
-        match node {
+    fn inputs(&mut self, node: &NodeData<DemoNode>) -> usize {
+        match &node.user {
             DemoNode::Number(_) => 0,
             DemoNode::Sink => 1,
         }
@@ -50,11 +45,11 @@ impl SnarlViewer<DemoNode> for DemoViewer {
         &mut self,
         pin: &InPin,
         ui: &mut egui::Ui,
-        snarl: &mut Snarl<DemoNode>,
+        snarl: &mut Snarl<NodeData<DemoNode>>,
     ) -> PinInfo {
         match &*pin.remotes {
             [] => ui.label("None"),
-            [remote] => match snarl[remote.node] {
+            [remote] => match &snarl[remote.node].user {
                 DemoNode::Number(value) => ui.label(format!("{value:.3}")),
                 DemoNode::Sink => ui.label("Invalid"),
             },
@@ -63,8 +58,8 @@ impl SnarlViewer<DemoNode> for DemoViewer {
         PinInfo::circle()
     }
 
-    fn outputs(&mut self, node: &DemoNode) -> usize {
-        match node {
+    fn outputs(&mut self, node: &NodeData<DemoNode>) -> usize {
+        match &node.user {
             DemoNode::Number(_) => 1,
             DemoNode::Sink => 0,
         }
@@ -75,9 +70,9 @@ impl SnarlViewer<DemoNode> for DemoViewer {
         &mut self,
         pin: &OutPin,
         ui: &mut egui::Ui,
-        snarl: &mut Snarl<DemoNode>,
+        snarl: &mut Snarl<NodeData<DemoNode>>,
     ) -> PinInfo {
-        match &mut snarl[pin.id.node] {
+        match &mut snarl.get_node_mut(pin.id.node).unwrap().user {
             DemoNode::Number(value) => {
                 ui.add(egui::DragValue::new(value).speed(0.1));
             }
@@ -88,29 +83,29 @@ impl SnarlViewer<DemoNode> for DemoViewer {
         PinInfo::circle()
     }
 
-    fn has_graph_menu(&mut self, _pos: egui::Pos2, _snarl: &mut Snarl<DemoNode>) -> bool {
+    fn has_graph_menu(&mut self, _pos: egui::Pos2, _snarl: &mut Snarl<NodeData<DemoNode>>) -> bool {
         true
     }
 
-    fn show_graph_menu(&mut self, pos: egui::Pos2, ui: &mut egui::Ui, snarl: &mut Snarl<DemoNode>) {
+    fn show_graph_menu(
+        &mut self,
+        pos: egui::Pos2,
+        ui: &mut egui::Ui,
+        _snarl: &mut Snarl<NodeData<DemoNode>>,
+    ) {
         if ui.button("Add Number").clicked() {
-            let mut g = self.graph.borrow_mut();
-            let mut b = self.bridge.borrow_mut();
-            b.insert_node(
-                &mut *g,
-                snarl,
-                SemanticNode::new(DemoNode::Number(0.0), Layout2d::new(pos.x, pos.y)),
+            let mut a = self.adapter.borrow_mut();
+            a.insert_node(
+                DemoNode::Number(0.0),
+                Layout2d::new(pos.x, pos.y),
+                0,
+                1,
             );
             ui.close();
         }
         if ui.button("Add Sink").clicked() {
-            let mut g = self.graph.borrow_mut();
-            let mut b = self.bridge.borrow_mut();
-            b.insert_node(
-                &mut *g,
-                snarl,
-                SemanticNode::new(DemoNode::Sink, Layout2d::new(pos.x, pos.y)),
-            );
+            let mut a = self.adapter.borrow_mut();
+            a.insert_node(DemoNode::Sink, Layout2d::new(pos.x, pos.y), 1, 0);
             ui.close();
         }
     }
@@ -118,7 +113,7 @@ impl SnarlViewer<DemoNode> for DemoViewer {
     fn current_transform(
         &mut self,
         to_global: &mut egui::emath::TSTransform,
-        _snarl: &mut Snarl<DemoNode>,
+        _snarl: &mut Snarl<NodeData<DemoNode>>,
     ) {
         if self.initial_zoom_pending && to_global.scaling > 0.0 {
             to_global.scaling *= 0.85;
@@ -127,20 +122,10 @@ impl SnarlViewer<DemoNode> for DemoViewer {
     }
 }
 
-pub fn init_demo_graph(
-    graph: &mut SemanticGraph<DemoNode, ()>,
-    bridge: &mut SemanticSnarlBridge,
-    snarl: &mut Snarl<DemoNode>,
-) {
-    let a = bridge.insert_node(
-        graph,
-        snarl,
-        SemanticNode::new(DemoNode::Number(1.0), Layout2d::new(40.0, 40.0)),
-    );
-    let b = bridge.insert_node(
-        graph,
-        snarl,
-        SemanticNode::new(DemoNode::Sink, Layout2d::new(280.0, 40.0)),
-    );
-    bridge.connect(graph, snarl, a, 0, b, 0).expect("demo connect");
+pub fn init_demo(adapter: &mut SnarlAdapter<DemoNode, ()>) {
+    let a = adapter.insert_node(DemoNode::Number(1.0), Layout2d::new(40.0, 40.0), 0, 1);
+    let b = adapter.insert_node(DemoNode::Sink, Layout2d::new(280.0, 40.0), 1, 0);
+    let out_pin = adapter.graph.node(a).unwrap().outputs[0];
+    let in_pin = adapter.graph.node(b).unwrap().inputs[0];
+    adapter.connect_pins(out_pin, in_pin, ()).expect("demo connect");
 }

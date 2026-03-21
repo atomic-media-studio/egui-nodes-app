@@ -1,13 +1,16 @@
-//! Stable identifiers for semantic nodes and edges.
+//! Opaque identifiers — stable across serialization; not Snarl slab indices.
 
-/// Opaque id for a node in the semantic graph (not a Snarl slab index).
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, PartialOrd, Ord)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 #[repr(transparent)]
-pub struct SemanticNodeId(pub u64);
+pub struct NodeId(pub u64);
 
-/// Opaque id for an edge in the semantic graph.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, PartialOrd, Ord)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 #[repr(transparent)]
-pub struct SemanticEdgeId(pub u64);
+pub struct PinId(pub u64);
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, PartialOrd, Ord)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+#[repr(transparent)]
+pub struct LinkId(pub u64);

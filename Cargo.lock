@@ -881,6 +881,17 @@ dependencies = [
 ]
 
 [[package]]
+name = "egui-nodes"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "egui",
+ "egui-snarl",
+ "serde",
+ "serde_json",
+]
+
+[[package]]
 name = "egui-phosphor"
 version = "0.11.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2096,37 +2107,8 @@ name = "nodes-app"
 version = "0.1.0"
 dependencies = [
  "eframe",
+ "egui-nodes",
  "egui-phosphor",
- "nodes-core",
- "nodes-egui",
- "nodes-snarl",
-]
-
-[[package]]
-name = "nodes-core"
-version = "0.1.0"
-dependencies = [
- "anyhow",
- "serde",
- "serde_json",
-]
-
-[[package]]
-name = "nodes-egui"
-version = "0.1.0"
-dependencies = [
- "egui",
- "egui-snarl",
- "nodes-core",
-]
-
-[[package]]
-name = "nodes-snarl"
-version = "0.1.0"
-dependencies = [
- "egui",
- "egui-snarl",
- "nodes-core",
 ]
 
 [[package]]
