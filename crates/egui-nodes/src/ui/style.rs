@@ -16,7 +16,9 @@ pub trait NodeStyleHook: Send + Sync {
     ) -> Stroke;
 }
 
-/// Default: emphasize stroke when the node is selected (using egui selection colors).
+/// Default: when selected, use a **transparent** stroke with the same width as [`default`], so
+/// [`egui::Frame::total_margin`] (and thus pin positions) do not change; only the canvas selection
+/// outline is visible. [`Stroke::NONE`] would drop stroke width to zero and shift layout.
 pub struct DefaultNodeStyleHook;
 
 impl NodeStyleHook for DefaultNodeStyleHook {
@@ -28,12 +30,9 @@ impl NodeStyleHook for DefaultNodeStyleHook {
         default: Stroke,
         egui_style: &Style,
     ) -> Stroke {
-        let _ = dragged;
+        let _ = (dragged, egui_style);
         if selected {
-            Stroke::new(
-                default.width.max(1.5),
-                egui_style.visuals.selection.stroke.color,
-            )
+            Stroke::new(default.width, Color32::TRANSPARENT)
         } else {
             default
         }

@@ -149,7 +149,7 @@ impl<T, V: NodeGraphViewer<T>> NodeGraphViewer<T> for NodesShellViewer<V> {
         pin: &InPin,
         ui: &mut Ui,
         node_graph: &mut NodeGraph<T>,
-    ) -> impl crate::ui::nodes_canvas::GraphPin + 'static {
+    ) -> crate::ui::nodes_canvas::PinInfo {
         self.inner.show_input(pin, ui, node_graph)
     }
 
@@ -162,7 +162,7 @@ impl<T, V: NodeGraphViewer<T>> NodeGraphViewer<T> for NodesShellViewer<V> {
         pin: &OutPin,
         ui: &mut Ui,
         node_graph: &mut NodeGraph<T>,
-    ) -> impl crate::ui::nodes_canvas::GraphPin + 'static {
+    ) -> crate::ui::nodes_canvas::PinInfo {
         self.inner.show_output(pin, ui, node_graph)
     }
 

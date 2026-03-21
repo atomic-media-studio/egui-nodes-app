@@ -85,7 +85,7 @@ pub enum PinShape {
 ///
 /// All fields are optional.
 /// If a field is `None`, the default value is used derived from the graph style.
-#[derive(Default)]
+#[derive(Default, Clone, Copy)]
 pub struct PinInfo {
     /// Shape of the pin.
     pub shape: Option<PinShape>,

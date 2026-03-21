@@ -13,7 +13,7 @@ pub fn default_canvas_style() -> CanvasStyle {
         pin_size: Some(8.0),
         pin_shape: Some(PinShape::Circle),
         pin_placement: Some(PinPlacement::Edge),
-        wire_width: Some(2.0),
+        wire_width: Some(3.0),
         wire_frame_size: Some(32.0),
         downscale_wire_frame: Some(true),
         upscale_wire_frame: Some(false),
@@ -133,7 +133,7 @@ pub fn style_controls_ui(ui: &mut egui::Ui, style: &mut CanvasStyle) {
 
     ui.separator();
     ui.collapsing("Wires", |ui| {
-        ui.add(egui::Slider::new(style.wire_width.get_or_insert(2.0), 0.2..=10.0).text("Width"));
+        ui.add(egui::Slider::new(style.wire_width.get_or_insert(3.0), 0.2..=10.0).text("Width"));
         ui.add(
             egui::Slider::new(style.wire_frame_size.get_or_insert(32.0), 4.0..=120.0)
                 .text("Frame size"),
@@ -343,7 +343,7 @@ pub fn style_controls_ui(ui: &mut egui::Ui, style: &mut CanvasStyle) {
     ui.collapsing("Selection", |ui| {
         let select_stroke = style
             .select_stoke
-            .get_or_insert(egui::Stroke::new(1.0, egui::Color32::from_rgb(80, 160, 255)));
+            .get_or_insert(egui::Stroke::new(4.0, egui::Color32::from_rgb(80, 160, 255)));
         ui.add(egui::Slider::new(&mut select_stroke.width, 0.0..=8.0).text("Stroke width"));
         ui.horizontal(|ui| {
             ui.label("Stroke color");
@@ -358,14 +358,22 @@ pub fn style_controls_ui(ui: &mut egui::Ui, style: &mut CanvasStyle) {
             ui.color_edit_button_srgba(fill);
         });
 
+        let mut rounding = ui.visuals().window_corner_radius;
+        rounding.sw = 6;
+        rounding.se = 6;
+        rounding.ne = 6;
+        rounding.nw = 6;
         let select_style = style.select_style.get_or_insert(SelectionStyle {
-            margin: ui.spacing().window_margin,
-            rounding: ui.visuals().window_corner_radius,
-            fill: style.select_fill.unwrap_or(egui::Color32::from_rgba_unmultiplied(
-                80, 160, 255, 48,
-            )),
+            margin: egui::Margin {
+                left: 3,
+                right: 3,
+                top: 3,
+                bottom: 3,
+            },
+            rounding,
+            fill: egui::Color32::TRANSPARENT,
             stroke: style.select_stoke.unwrap_or(egui::Stroke::new(
-                1.0,
+                4.0,
                 egui::Color32::from_rgb(80, 160, 255),
             )),
         });

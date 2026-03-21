@@ -307,16 +307,16 @@ impl NodeLayout {
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 #[cfg_attr(feature = "egui-probe", derive(egui_probe::EguiProbe))]
 pub struct SelectionStyle {
-    /// Margin between selection rect and node frame.
+    /// Extra inset/outset for the selection outline vs. the node frame. Default is zero.
     pub margin: Margin,
 
     /// Rounding of selection rect.
     pub rounding: CornerRadius,
 
-    /// Fill color of selection rect.
+    /// Fill behind the selection outline. Use [`Color32::TRANSPARENT`] for a border only.
     pub fill: Color32,
 
-    /// Stroke of selection rect.
+    /// Outline of the selection rect.
     pub stroke: Stroke,
 }
 
@@ -609,9 +609,8 @@ impl CanvasStyle {
         self.pin_placement.unwrap_or_default()
     }
 
-    fn get_wire_width(&self, style: &Style) -> f32 {
-        self.wire_width
-            .unwrap_or_else(|| self.get_pin_size(style) * 0.1)
+    fn get_wire_width(&self, _style: &Style) -> f32 {
+        self.wire_width.unwrap_or(3.0)
     }
 
     fn get_wire_frame_size(&self, style: &Style) -> f32 {
@@ -677,7 +676,7 @@ impl CanvasStyle {
     fn get_select_stroke(&self, style: &Style) -> Stroke {
         self.select_stoke.unwrap_or_else(|| {
             Stroke::new(
-                style.visuals.selection.stroke.width,
+                4.0,
                 style.visuals.selection.stroke.color.gamma_multiply(0.5),
             )
         })
@@ -693,11 +692,22 @@ impl CanvasStyle {
     }
 
     fn get_select_style(&self, style: &Style) -> SelectionStyle {
-        self.select_style.unwrap_or_else(|| SelectionStyle {
-            margin: style.spacing.window_margin,
-            rounding: style.visuals.window_corner_radius,
-            fill: self.get_select_fill(style),
-            stroke: self.get_select_stroke(style),
+        self.select_style.unwrap_or_else(|| {
+            let mut rounding = style.visuals.window_corner_radius;
+            rounding.sw = 3;
+            rounding.se = 3;
+            SelectionStyle {
+                margin: Margin {
+                    left: 3,
+                    right: 3,
+                    top: 3,
+                    bottom: 3,
+                },
+                rounding,
+                // Border only; marquee drag-rect still uses [`get_select_fill`].
+                fill: Color32::TRANSPARENT,
+                stroke: self.get_select_stroke(style),
+            }
         })
     }
 
@@ -819,10 +829,33 @@ mod serde_frame_option {
     }
 }
 
+/// Default selection stroke and fill used when [`CanvasStyle::select_stoke`] / [`CanvasStyle::select_style`] are set.
+///
+/// Matches the playground: 4px blue outline; marquee uses [`CanvasStyle::select_fill`] when unset.
+#[inline]
+fn default_selection_stroke() -> Stroke {
+    Stroke::new(4.0, Color32::from_rgb(80, 160, 255))
+}
+
+#[inline]
+fn default_selection_rounding() -> CornerRadius {
+    CornerRadius {
+        nw: 6,
+        ne: 6,
+        sw: 3,
+        se: 3,
+    }
+}
+
 impl CanvasStyle {
     /// Creates new [`CanvasStyle`] filled with default values.
+    ///
+    /// Selection uses explicit blue stroke and margins so the first frame matches later frames
+    /// (no dependency on theme-only fallbacks before the first style sync).
     #[must_use]
-    pub const fn new() -> Self {
+    pub fn new() -> Self {
+        let selection_stroke = default_selection_stroke();
+        let selection_rounding = default_selection_rounding();
         CanvasStyle {
             node_layout: None,
             pin_size: None,
@@ -848,10 +881,20 @@ impl CanvasStyle {
             node_frame: None,
             header_frame: None,
             centering: None,
-            select_stoke: None,
+            select_stoke: Some(selection_stroke),
             select_fill: None,
             select_rect_contained: None,
-            select_style: None,
+            select_style: Some(SelectionStyle {
+                margin: Margin {
+                    left: 3,
+                    right: 3,
+                    top: 3,
+                    bottom: 3,
+                },
+                rounding: selection_rounding,
+                fill: Color32::TRANSPARENT,
+                stroke: selection_stroke,
+            }),
             crisp_magnified_text: None,
             wire_smoothness: None,
 
@@ -888,6 +931,9 @@ struct DrawBodyResponse {
 
 struct PinResponse {
     pos: Pos2,
+    /// Last drawn pin shape rect (includes hover scale).
+    draw_rect: Rect,
+    pin_info: PinInfo,
     wire_color: Color32,
     wire_style: WireStyle,
 }
@@ -1641,6 +1687,8 @@ where
                 in_pin.id,
                 PinResponse {
                     pos: r.rect.center(),
+                    draw_rect: visual_pin_rect,
+                    pin_info: graph_pin,
                     wire_color: wire_info.color,
                     wire_style: wire_info.style,
                 },
@@ -1801,6 +1849,8 @@ where
                 out_pin.id,
                 PinResponse {
                     pos: r.rect.center(),
+                    draw_rect: visual_pin_rect,
+                    pin_info: graph_pin,
                     wire_color: wire_info.color,
                     wire_style: wire_info.style,
                 },
@@ -1927,20 +1977,6 @@ where
 
     // Rect for node + frame margin.
     let node_frame_rect = node_rect + node_frame.total_margin();
-
-    if canvas_state.selected_nodes().contains(&node) {
-        let select_style = style.get_select_style(ui.style());
-
-        let select_rect = node_frame_rect + select_style.margin;
-
-        ui.painter().rect(
-            select_rect,
-            select_style.rounding,
-            select_style.fill,
-            select_style.stroke,
-            StrokeKind::Inside,
-        );
-    }
 
     // Size of the pin.
     // Side of the square or diameter of the circle.
@@ -2542,6 +2578,35 @@ where
                 + new_pins_size.y,
         ));
     });
+
+    // Draw selection after header and body so the outline sits on top (header was covering it).
+    // Single outline around the full node; default margin is zero so it is not offset outward.
+    if canvas_state.selected_nodes().contains(&node) {
+        let select_style = style.get_select_style(ui.style());
+        let select_rect = node_frame_rect + select_style.margin;
+        ui.painter().rect(
+            select_rect,
+            select_style.rounding,
+            select_style.fill,
+            select_style.stroke,
+            StrokeKind::Inside,
+        );
+        // Selection was painted after pins; draw pins again on top of the outline.
+        let painter = ui.painter();
+        let egui_style = ui.style();
+        for (id, pr) in input_positions.iter() {
+            if id.node != node {
+                continue;
+            }
+            let _ = pr.pin_info.draw(style, egui_style, pr.draw_rect, &painter);
+        }
+        for (id, pr) in output_positions.iter() {
+            if id.node != node {
+                continue;
+            }
+            let _ = pr.pin_info.draw(style, egui_style, pr.draw_rect, &painter);
+        }
+    }
 
     if !node_graph.nodes.contains(node.0) {
         ui.ctx().request_repaint();

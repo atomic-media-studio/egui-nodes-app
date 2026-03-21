@@ -3,7 +3,7 @@ use egui::{emath::TSTransform, Painter, Pos2, Rect, Style, Ui};
 use super::super::{InPin, InPinId, NodeId, OutPin, OutPinId, NodeGraph};
 
 use super::{
-    pin::{AnyPins, GraphPin},
+    pin::{AnyPins, PinInfo},
     BackgroundPattern, NodeLayout, CanvasStyle,
 };
 
@@ -129,7 +129,7 @@ pub trait NodeGraphViewer<T> {
         pin: &InPin,
         ui: &mut Ui,
         node_graph: &mut NodeGraph<T>,
-    ) -> impl GraphPin + 'static;
+    ) -> PinInfo;
 
     /// Returns number of output pins of the node.
     ///
@@ -142,7 +142,7 @@ pub trait NodeGraphViewer<T> {
         pin: &OutPin,
         ui: &mut Ui,
         node_graph: &mut NodeGraph<T>,
-    ) -> impl GraphPin + 'static;
+    ) -> PinInfo;
 
     /// Checks if node has something to show in body - between input and output pins.
     #[inline]
