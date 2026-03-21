@@ -1,4 +1,4 @@
-//! Graph, nodes, links — headless model.
+//! Graph topology and node payloads — portable, testable, no UI types.
 
 use std::collections::{HashMap, HashSet};
 
@@ -6,10 +6,7 @@ use crate::error::GraphError;
 use crate::ids::{LinkId, NodeId, PinId};
 use crate::layout::Layout2d;
 
-/// Logical pin handle — alias of [`PinId`] for APIs that prefer the word “pin”.
-pub type Pin = PinId;
-
-/// Whether a pin is an input or output port on a node.
+/// Input vs output port (also stored on each [`Pin`]).
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub enum PinKind {
@@ -17,7 +14,16 @@ pub enum PinKind {
     Output,
 }
 
-/// One node: domain `data`, layout, and stable [`PinId`] lists for inputs / outputs.
+/// One connection point on a node.
+#[derive(Clone, Debug)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+pub struct Pin {
+    pub id: PinId,
+    pub kind: PinKind,
+    pub label: String,
+}
+
+/// One node: labels, domain `data`, editor layout, and typed pins.
 #[derive(Clone, Debug)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 #[cfg_attr(
@@ -29,12 +35,13 @@ pub enum PinKind {
 )]
 pub struct Node<N> {
     pub id: NodeId,
+    pub label: String,
     pub data: N,
     pub layout: Layout2d,
     /// UI collapse (e.g. open == !collapsed in a node editor).
     pub collapsed: bool,
-    pub inputs: Vec<PinId>,
-    pub outputs: Vec<PinId>,
+    pub inputs: Vec<Pin>,
+    pub outputs: Vec<Pin>,
 }
 
 /// Directed link from an **output** pin to an **input** pin.
@@ -54,7 +61,7 @@ pub struct Link<E> {
     pub data: E,
 }
 
-/// Foundational graph — portable, testable, no UI.
+/// Foundational graph — topology + payloads.
 #[derive(Clone, Debug)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 #[cfg_attr(
@@ -65,14 +72,13 @@ pub struct Link<E> {
     ))
 )]
 pub struct Graph<N, E> {
-    /// All nodes (order not significant; use [`Graph::node`](Graph::node) by id).
     pub nodes: Vec<Node<N>>,
     pub links: Vec<Link<E>>,
     node_index: HashMap<NodeId, usize>,
-    pin_kind: HashMap<PinId, (NodeId, usize, PinKind)>,
-    next_node: u64,
-    next_pin: u64,
-    next_link: u64,
+    pin_index: HashMap<PinId, (NodeId, usize, PinKind)>,
+    next_node: u32,
+    next_pin: u32,
+    next_link: u32,
 }
 
 impl<N, E> Default for Graph<N, E> {
@@ -87,32 +93,32 @@ impl<N, E> Graph<N, E> {
             nodes: Vec::new(),
             links: Vec::new(),
             node_index: HashMap::new(),
-            pin_kind: HashMap::new(),
+            pin_index: HashMap::new(),
             next_node: 1,
             next_pin: 1,
             next_link: 1,
         }
     }
 
-    fn alloc_node_id(&mut self) -> NodeId {
-        let id = NodeId(self.next_node);
+    fn alloc_node_id(&mut self) -> Option<NodeId> {
+        let raw = self.next_node;
         self.next_node = self.next_node.saturating_add(1);
-        id
+        NodeId::from_raw(raw)
     }
 
-    fn alloc_pin_id(&mut self) -> PinId {
-        let id = PinId(self.next_pin);
+    fn alloc_pin_id(&mut self) -> Option<PinId> {
+        let raw = self.next_pin;
         self.next_pin = self.next_pin.saturating_add(1);
-        id
+        PinId::from_raw(raw)
     }
 
-    fn alloc_link_id(&mut self) -> LinkId {
-        let id = LinkId(self.next_link);
+    fn alloc_link_id(&mut self) -> Option<LinkId> {
+        let raw = self.next_link;
         self.next_link = self.next_link.saturating_add(1);
-        id
+        LinkId::from_raw(raw)
     }
 
-    /// Add a node with `inputs` input pins and `outputs` output pins.
+    /// Add a node with `inputs` / `outputs` pins; labels default to `in0…` / `out0…`.
     pub fn add_node(
         &mut self,
         data: N,
@@ -120,22 +126,38 @@ impl<N, E> Graph<N, E> {
         inputs: usize,
         outputs: usize,
     ) -> NodeId {
-        let id = self.alloc_node_id();
+        let Some(id) = self.alloc_node_id() else {
+            panic!("exhausted NodeId space");
+        };
+        let label = format!("Node {}", id.get());
         let mut in_pins = Vec::with_capacity(inputs);
         let mut out_pins = Vec::with_capacity(outputs);
         for i in 0..inputs {
-            let p = self.alloc_pin_id();
-            in_pins.push(p);
-            self.pin_kind.insert(p, (id, i, PinKind::Input));
+            let Some(pid) = self.alloc_pin_id() else {
+                panic!("exhausted PinId space");
+            };
+            self.pin_index.insert(pid, (id, i, PinKind::Input));
+            in_pins.push(Pin {
+                id: pid,
+                kind: PinKind::Input,
+                label: format!("in{i}"),
+            });
         }
         for i in 0..outputs {
-            let p = self.alloc_pin_id();
-            out_pins.push(p);
-            self.pin_kind.insert(p, (id, i, PinKind::Output));
+            let Some(pid) = self.alloc_pin_id() else {
+                panic!("exhausted PinId space");
+            };
+            self.pin_index.insert(pid, (id, i, PinKind::Output));
+            out_pins.push(Pin {
+                id: pid,
+                kind: PinKind::Output,
+                label: format!("out{i}"),
+            });
         }
         let idx = self.nodes.len();
         self.nodes.push(Node {
             id,
+            label,
             data,
             layout,
             collapsed: false,
@@ -158,8 +180,9 @@ impl<N, E> Graph<N, E> {
         self.nodes.iter()
     }
 
+    /// Port index within inputs or outputs, and `true` if this pin is an output.
     pub fn pin_port(&self, pin: PinId) -> Option<(NodeId, usize, bool)> {
-        self.pin_kind
+        self.pin_index
             .get(&pin)
             .map(|&(n, i, k)| (n, i, matches!(k, PinKind::Output)))
     }
@@ -194,14 +217,16 @@ impl<N, E> Graph<N, E> {
             }
         }
 
-        let id = self.alloc_link_id();
+        let Some(lid) = self.alloc_link_id() else {
+            panic!("exhausted LinkId space");
+        };
         self.links.push(Link {
-            id,
+            id: lid,
             from,
             to,
             data,
         });
-        Ok(id)
+        Ok(lid)
     }
 
     pub fn disconnect_link(&mut self, id: LinkId) -> Option<Link<E>> {
@@ -213,9 +238,14 @@ impl<N, E> Graph<N, E> {
     pub fn remove_node(&mut self, id: NodeId) -> Option<Node<N>> {
         let idx = self.node_index.remove(&id)?;
         let node = self.nodes.remove(idx);
-        let dead: HashSet<PinId> = node.inputs.iter().chain(node.outputs.iter()).copied().collect();
+        let dead: HashSet<PinId> = node
+            .inputs
+            .iter()
+            .chain(node.outputs.iter())
+            .map(|p| p.id)
+            .collect();
         for p in &dead {
-            self.pin_kind.remove(p);
+            self.pin_index.remove(p);
         }
         self.links
             .retain(|l| !dead.contains(&l.from) && !dead.contains(&l.to));
@@ -231,7 +261,7 @@ impl<N, E> Graph<N, E> {
     /// Remove links whose endpoint pins are missing (internal consistency).
     pub fn prune_stale_links(&mut self) {
         self.links.retain(|l| {
-            self.pin_kind.contains_key(&l.from) && self.pin_kind.contains_key(&l.to)
+            self.pin_index.contains_key(&l.from) && self.pin_index.contains_key(&l.to)
         });
     }
 
@@ -254,9 +284,25 @@ mod tests {
         let mut g = Graph::<&str, ()>::new();
         let a = g.add_node("a", Layout2d::new(0.0, 0.0), 0, 1);
         let b = g.add_node("b", Layout2d::new(1.0, 0.0), 1, 0);
-        let out_a = g.node(a).unwrap().outputs[0];
-        let in_b = g.node(b).unwrap().inputs[0];
+        let out_a = g.node(a).unwrap().outputs[0].id;
+        let in_b = g.node(b).unwrap().inputs[0].id;
         let _ = g.connect(out_a, in_b, ()).unwrap();
         assert_eq!(g.links.len(), 1);
+    }
+}
+
+#[cfg(all(test, feature = "serde"))]
+mod serde_roundtrip_tests {
+    use super::*;
+
+    #[test]
+    fn graph_json_roundtrip() {
+        let mut g = Graph::<i32, ()>::new();
+        let _ = g.add_node(7, Layout2d::new(3.0, 4.0), 1, 1);
+        let json = serde_json::to_string(&g).unwrap();
+        let back: Graph<i32, ()> = serde_json::from_str(&json).unwrap();
+        assert_eq!(g.nodes.len(), back.nodes.len());
+        assert_eq!(g.nodes[0].data, back.nodes[0].data);
+        assert_eq!(g.links.len(), back.links.len());
     }
 }

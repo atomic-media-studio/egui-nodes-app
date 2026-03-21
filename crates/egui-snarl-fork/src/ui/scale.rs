@@ -34,7 +34,9 @@ impl EguiScale for PinPlacement {
 impl EguiScale for BackgroundPattern {
     fn scale(&mut self, scale: f32) {
         if let BackgroundPattern::Grid(grid) = self {
-            grid.spacing.scale(scale);
+            grid.spacing *= scale;
+            grid.phase *= scale;
+            grid.dot_radius *= scale;
         }
     }
 }

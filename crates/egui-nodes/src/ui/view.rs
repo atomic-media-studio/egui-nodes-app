@@ -45,7 +45,7 @@ impl<'a, N, E, V> NodesView<'a, N, E, V> {
 
     pub fn show(&mut self, ui: &mut Ui) -> egui::Response
     where
-        N: Clone,
+        N: Clone + PartialEq,
         E: Default + Clone,
         V: SnarlViewer<NodeData<N>>,
     {

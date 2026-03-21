@@ -1,16 +1,32 @@
-//! Opaque identifiers — stable across serialization; not UI slab indices.
+//! Stable identifiers — not UI slab indices.
 
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, PartialOrd, Ord)]
-#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
-#[repr(transparent)]
-pub struct NodeId(pub u64);
+use std::num::NonZeroU32;
 
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, PartialOrd, Ord)]
-#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
-#[repr(transparent)]
-pub struct PinId(pub u64);
+macro_rules! id_type {
+    ($name:ident) => {
+        #[derive(Debug, Copy, Clone, Eq, PartialEq, Hash, Ord, PartialOrd)]
+        #[repr(transparent)]
+        #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+        #[cfg_attr(feature = "serde", serde(transparent))]
+        pub struct $name(NonZeroU32);
 
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, PartialOrd, Ord)]
-#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
-#[repr(transparent)]
-pub struct LinkId(pub u64);
+        impl $name {
+            #[must_use]
+            pub const fn from_raw(raw: u32) -> Option<Self> {
+                match NonZeroU32::new(raw) {
+                    Some(n) => Some(Self(n)),
+                    None => None,
+                }
+            }
+
+            #[must_use]
+            pub const fn get(self) -> u32 {
+                self.0.get()
+            }
+        }
+    };
+}
+
+id_type!(NodeId);
+id_type!(PinId);
+id_type!(LinkId);

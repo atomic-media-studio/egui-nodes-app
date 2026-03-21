@@ -10,13 +10,14 @@ use eframe::egui;
 use egui_phosphor::regular;
 use egui_nodes::egui_snarl_fork::{InPin, OutPin, Snarl, ui::{PinInfo, SnarlViewer}};
 use egui_nodes::{
-    InteractionMode, Layout2d, NodeData, NodesShellViewer, NodesStyle, NodesView, NodesViewState,
-    SnarlAdapter,
+    GraphChanges, InteractionMode, Layout2d, NodeData, NodesShellViewer, NodesStyle, NodesView,
+    NodesViewState, SnarlAdapter,
 };
 
 fn main() -> eframe::Result<()> {
     let options = eframe::NativeOptions {
         viewport: egui::ViewportBuilder::default().with_inner_size([960.0, 640.0]),
+        persist_window: true,
         ..Default::default()
     };
     eframe::run_native(
@@ -32,7 +33,7 @@ fn main() -> eframe::Result<()> {
     )
 }
 
-#[derive(Clone)]
+#[derive(Clone, PartialEq)]
 enum DemoNode {
     Number(f64),
     Sink,
@@ -152,8 +153,8 @@ impl SnarlViewer<NodeData<DemoNode>> for DemoViewer {
 fn init_demo(adapter: &mut SnarlAdapter<DemoNode, ()>) {
     let a = adapter.insert_node(DemoNode::Number(1.0), Layout2d::new(40.0, 40.0), 0, 1);
     let b = adapter.insert_node(DemoNode::Sink, Layout2d::new(280.0, 40.0), 1, 0);
-    let out_pin = adapter.graph.node(a).unwrap().outputs[0];
-    let in_pin = adapter.graph.node(b).unwrap().inputs[0];
+    let out_pin = adapter.graph.node(a).unwrap().outputs[0].id;
+    let in_pin = adapter.graph.node(b).unwrap().inputs[0].id;
     adapter.connect_pins(out_pin, in_pin, ()).expect("demo connect");
 }
 
@@ -162,6 +163,8 @@ struct TemplateApp {
     nodes_style: NodesStyle,
     view_state: NodesViewState,
     viewer: NodesShellViewer<DemoViewer>,
+    /// Last drained [`GraphChanges`] summary (for shell UX; drive evaluation from the same signal).
+    last_graph_changes: String,
 }
 
 impl Default for TemplateApp {
@@ -179,8 +182,23 @@ impl Default for TemplateApp {
             nodes_style,
             view_state: NodesViewState::default(),
             viewer,
+            last_graph_changes: String::new(),
         }
     }
+}
+
+fn format_graph_changes(c: &GraphChanges) -> String {
+    if !c.any() {
+        return "none (idle)".to_string();
+    }
+    let mut parts = Vec::new();
+    if c.topology_changed {
+        parts.push("topology");
+    }
+    if c.payload_or_layout_changed {
+        parts.push("payload/layout");
+    }
+    parts.join(" + ")
 }
 
 impl eframe::App for TemplateApp {
@@ -229,6 +247,12 @@ impl eframe::App for TemplateApp {
                 egui::ScrollArea::vertical().show(ui, |ui| {
                     style_panel::style_controls_ui(ui, &mut self.nodes_style.snarl);
                 });
+                ui.separator();
+                ui.label("Last graph activity:");
+                ui.monospace(&self.last_graph_changes);
+                ui.small(
+                    "Drain GraphChanges after NodesView::show to re-run Executor only when needed (topology ⇒ recompute_topo).",
+                );
             });
 
         egui::CentralPanel::default().show(ctx, |ui| {
@@ -241,6 +265,8 @@ impl eframe::App for TemplateApp {
             )
             .with_snarl_id(egui::Id::new("main-snarl-panel"));
             let _ = nodes_view.show(ui);
+            let changes = adapter.take_graph_changes();
+            self.last_graph_changes = format_graph_changes(&changes);
         });
     }
 }

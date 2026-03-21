@@ -16,6 +16,25 @@ pub struct NodeData<N> {
     pub user: N,
 }
 
+/// Accumulated edits since the last [`SnarlAdapter::take_graph_changes`].
+///
+/// Use this to drive [`core_graph::Executor::recompute_topology`] / evaluation only when something
+/// actually changed, instead of every frame.
+#[derive(Debug, Clone, Default, PartialEq, Eq)]
+pub struct GraphChanges {
+    /// Node/link connectivity changed (add/remove wire or node).
+    pub topology_changed: bool,
+    /// Node payload, [`core_graph::Layout2d`], or collapse state changed (Snarl ↔ graph sync).
+    pub payload_or_layout_changed: bool,
+}
+
+impl GraphChanges {
+    #[must_use]
+    pub fn any(&self) -> bool {
+        self.topology_changed || self.payload_or_layout_changed
+    }
+}
+
 #[derive(Debug)]
 pub enum AdapterError {
     Graph(GraphError),
@@ -28,7 +47,7 @@ impl fmt::Display for AdapterError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
             Self::Graph(e) => write!(f, "{e}"),
-            Self::UnmappedNode(id) => write!(f, "node {:?} not mapped to Snarl", id.0),
+            Self::UnmappedNode(id) => write!(f, "node {} not mapped to Snarl", id.get()),
             Self::UnmappedSnarlNode(id) => write!(f, "snarl node {} not mapped", id.0),
             Self::SnarlRejectedWire => write!(f, "Snarl rejected wire"),
         }
@@ -51,11 +70,16 @@ impl From<GraphError> for AdapterError {
 }
 
 /// Owns the headless [`Graph`] and the Snarl view; maps [`NodeId`] ↔ [`SnarlNodeId`].
+///
+/// After [`crate::NodesView::show`](crate::ui::view::NodesView::show), call [`Self::take_graph_changes`]
+/// once to see whether topology or payloads changed — then refresh a [`core_graph::Executor`] only when
+/// needed (e.g. [`GraphChanges::topology_changed`] ⇒ [`core_graph::Executor::recompute_topology`]).
 pub struct SnarlAdapter<N, E> {
     pub graph: Graph<N, E>,
     pub snarl: Snarl<NodeData<N>>,
     node_to_snarl: HashMap<NodeId, SnarlNodeId>,
     snarl_to_node: HashMap<SnarlNodeId, NodeId>,
+    pending_changes: GraphChanges,
 }
 
 impl<N, E> Default for SnarlAdapter<N, E> {
@@ -71,7 +95,14 @@ impl<N, E> SnarlAdapter<N, E> {
             snarl: Snarl::new(),
             node_to_snarl: HashMap::new(),
             snarl_to_node: HashMap::new(),
+            pending_changes: GraphChanges::default(),
         }
+    }
+
+    /// Drain accumulated graph edits. After this call, the next [`Self::take_graph_changes`]
+    /// returns empty flags until new edits occur.
+    pub fn take_graph_changes(&mut self) -> GraphChanges {
+        std::mem::take(&mut self.pending_changes)
     }
 
     pub fn snarl_node(&self, graph: NodeId) -> Option<SnarlNodeId> {
@@ -135,6 +166,8 @@ impl<N, E> SnarlAdapter<N, E> {
         };
         self.node_to_snarl.insert(id, sn);
         self.snarl_to_node.insert(sn, id);
+        self.pending_changes.topology_changed = true;
+        self.pending_changes.payload_or_layout_changed = true;
         id
     }
 
@@ -157,6 +190,8 @@ impl<N, E> SnarlAdapter<N, E> {
             let _ = self.graph.disconnect_link(lid);
             return Err(AdapterError::SnarlRejectedWire);
         }
+        self.pending_changes.topology_changed = true;
+        self.pending_changes.payload_or_layout_changed = true;
         Ok(lid)
     }
 
@@ -174,9 +209,21 @@ impl<N, E> SnarlAdapter<N, E> {
 
     pub fn sync_graph_from_snarl(&mut self)
     where
-        N: Clone,
+        N: Clone + PartialEq,
         E: Default + Clone,
     {
+        let keys_before = self.graph.link_key_set();
+        let mut payload_changed = false;
+        for (&nid, &snid) in &self.node_to_snarl {
+            if let (Some(gn), Some(info)) = (self.graph.node(nid), self.snarl.get_node_info(snid)) {
+                let new_layout = pos2_to_layout(info.pos);
+                let new_collapsed = !info.open;
+                let new_data = info.value.user.clone();
+                if gn.layout != new_layout || gn.collapsed != new_collapsed || gn.data != new_data {
+                    payload_changed = true;
+                }
+            }
+        }
         for (&nid, &snid) in &self.node_to_snarl {
             if let (Some(gn), Some(info)) = (self.graph.node_mut(nid), self.snarl.get_node_info(snid)) {
                 gn.layout = pos2_to_layout(info.pos);
@@ -185,6 +232,14 @@ impl<N, E> SnarlAdapter<N, E> {
             }
         }
         self.sync_links_from_snarl();
+        let keys_after = self.graph.link_key_set();
+        let topology = keys_before != keys_after;
+        if topology {
+            self.pending_changes.topology_changed = true;
+        }
+        if topology || payload_changed {
+            self.pending_changes.payload_or_layout_changed = true;
+        }
     }
 
     /// Update only the headless [`Graph`] link list from Snarl wires (Snarl is authoritative).
@@ -227,13 +282,13 @@ impl<N, E> SnarlAdapter<N, E> {
     ) -> Result<PinId, ()> {
         let nid = self.snarl_to_node.get(&p.node).copied().ok_or(())?;
         let node = self.graph.node(nid).ok_or(())?;
-        node.outputs.get(p.output).copied().ok_or(())
+        node.outputs.get(p.output).map(|pin| pin.id).ok_or(())
     }
 
     fn graph_pin_from_snarl_in(&self, p: InPinId) -> Result<PinId, ()> {
         let nid = self.snarl_to_node.get(&p.node).copied().ok_or(())?;
         let node = self.graph.node(nid).ok_or(())?;
-        node.inputs.get(p.input).copied().ok_or(())
+        node.inputs.get(p.input).map(|pin| pin.id).ok_or(())
     }
 
 }

@@ -2,8 +2,8 @@
 
 use eframe::egui;
 use egui_nodes::egui_snarl_fork::ui::{
-    BackgroundPattern, Grid, NodeLayout, PinPlacement, PinShape, SelectionStyle, SnarlStyle,
-    WireLayer, WireStyle,
+    BackgroundPattern, GridRenderMode, NodeLayout, PinPlacement, PinShape, SelectionStyle,
+    SnarlStyle, WireLayer, WireStyle,
 };
 
 pub fn default_snarl_style() -> SnarlStyle {
@@ -23,7 +23,7 @@ pub fn default_snarl_style() -> SnarlStyle {
         min_scale: Some(0.1),
         max_scale: Some(2.0),
         centering: Some(true),
-        wire_smoothness: Some(1.0),
+        wire_smoothness: Some(0.0),
         ..SnarlStyle::new()
     }
 }
@@ -139,7 +139,7 @@ pub fn style_controls_ui(ui: &mut egui::Ui, style: &mut SnarlStyle) {
                 .text("Frame size"),
         );
         ui.add(
-            egui::Slider::new(style.wire_smoothness.get_or_insert(1.0), 0.0..=10.0)
+            egui::Slider::new(style.wire_smoothness.get_or_insert(0.0), 0.0..=10.0)
                 .text("Smoothness"),
         );
         ui.checkbox(
@@ -215,12 +215,41 @@ pub fn style_controls_ui(ui: &mut egui::Ui, style: &mut SnarlStyle) {
         } else if !matches!(pattern, BackgroundPattern::Grid(_)) {
             pattern = BackgroundPattern::grid(egui::vec2(50.0, 50.0), 0.0);
         }
-        if let BackgroundPattern::Grid(Grid { spacing, angle }) = &mut pattern {
-            ui.add(egui::Slider::new(&mut spacing.x, 5.0..=200.0).text("Grid spacing X"));
-            ui.add(egui::Slider::new(&mut spacing.y, 5.0..=200.0).text("Grid spacing Y"));
+        if let BackgroundPattern::Grid(g) = &mut pattern {
+            ui.add(egui::Slider::new(&mut g.spacing.x, 5.0..=200.0).text("Grid spacing X"));
+            ui.add(egui::Slider::new(&mut g.spacing.y, 5.0..=200.0).text("Grid spacing Y"));
             ui.add(
-                egui::Slider::new(angle, 0.0..=std::f32::consts::TAU).text("Grid angle (rad)"),
+                egui::Slider::new(&mut g.angle, 0.0..=std::f32::consts::TAU).text("Grid angle (rad)"),
             );
+            egui::ComboBox::from_label("Grid look")
+                .selected_text(match g.mode {
+                    GridRenderMode::Lines => "Lines",
+                    GridRenderMode::Dots => "Dots (intersections only)",
+                })
+                .show_ui(ui, |ui| {
+                    ui.selectable_value(&mut g.mode, GridRenderMode::Lines, "Lines");
+                    ui.selectable_value(
+                        &mut g.mode,
+                        GridRenderMode::Dots,
+                        "Dots (intersections only)",
+                    );
+                });
+            ui.add(egui::Slider::new(&mut g.phase.x, -200.0..=200.0).text("Phase X"));
+            ui.add(egui::Slider::new(&mut g.phase.y, -200.0..=200.0).text("Phase Y"));
+            if g.mode == GridRenderMode::Dots {
+                ui.add(egui::Slider::new(&mut g.dot_radius, 0.5..=12.0).text("Dot radius"));
+            }
+            ui.horizontal(|ui| {
+                ui.label("Grid color (override)");
+                let mut use_custom = g.color.is_some();
+                ui.checkbox(&mut use_custom, "Custom");
+                if use_custom {
+                    let c = g.color.get_or_insert(egui::Color32::from_gray(120));
+                    ui.color_edit_button_srgba(c);
+                } else {
+                    g.color = None;
+                }
+            });
         }
         style.bg_pattern = Some(pattern);
 

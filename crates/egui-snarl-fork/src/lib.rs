@@ -18,6 +18,7 @@
 
 pub mod ui;
 
+use std::fmt;
 use std::ops::{Index, IndexMut};
 
 use egui::{Pos2, ahash::HashSet};
@@ -80,6 +81,23 @@ pub struct InPinId {
     /// Input pin index.
     pub input: usize,
 }
+
+/// Error from [`Snarl`] when a [`NodeId`] is not valid for the operation.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+pub enum SnarlError {
+    /// No node exists with this id in the [`Snarl`].
+    UnknownNode(NodeId),
+}
+
+impl fmt::Display for SnarlError {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Self::UnknownNode(id) => write!(f, "unknown node {}", id.0),
+        }
+    }
+}
+
+impl std::error::Error for SnarlError {}
 
 /// Connection between two nodes.
 ///
@@ -268,6 +286,12 @@ impl<T> Snarl<T> {
         NodeId(idx)
     }
 
+    /// Returns whether `id` refers to a node currently in this graph.
+    #[must_use]
+    pub fn contains_node(&self, id: NodeId) -> bool {
+        self.nodes.contains(id.0)
+    }
+
     /// Opens or collapses a node.
     ///
     /// # Panics
@@ -275,7 +299,17 @@ impl<T> Snarl<T> {
     /// Panics if the node does not exist.
     #[track_caller]
     pub fn open_node(&mut self, node: NodeId, open: bool) {
+        self.try_open_node(node, open)
+            .expect("Snarl::open_node: node id must exist");
+    }
+
+    /// Opens or collapses a node, or returns [`SnarlError::UnknownNode`] if `node` is invalid.
+    pub fn try_open_node(&mut self, node: NodeId, open: bool) -> Result<(), SnarlError> {
+        if !self.nodes.contains(node.0) {
+            return Err(SnarlError::UnknownNode(node));
+        }
         self.nodes[node.0].open = open;
+        Ok(())
     }
 
     /// Removes a node from the Snarl.
@@ -295,9 +329,18 @@ impl<T> Snarl<T> {
     /// ```
     #[track_caller]
     pub fn remove_node(&mut self, idx: NodeId) -> T {
+        self.try_remove_node(idx)
+            .expect("Snarl::remove_node: node id must exist")
+    }
+
+    /// Removes a node and its incident wires, or returns [`SnarlError::UnknownNode`].
+    pub fn try_remove_node(&mut self, idx: NodeId) -> Result<T, SnarlError> {
+        if !self.nodes.contains(idx.0) {
+            return Err(SnarlError::UnknownNode(idx));
+        }
         let value = self.nodes.remove(idx.0).value;
         self.wires.drop_node(idx);
-        value
+        Ok(value)
     }
 
     /// Connects two nodes.
@@ -309,14 +352,24 @@ impl<T> Snarl<T> {
     /// Panics if either node does not exist.
     #[track_caller]
     pub fn connect(&mut self, from: OutPinId, to: InPinId) -> bool {
-        assert!(self.nodes.contains(from.node.0));
-        assert!(self.nodes.contains(to.node.0));
+        self.try_connect(from, to)
+            .expect("Snarl::connect: both node ids must exist")
+    }
 
+    /// Connects two nodes. Returns `Ok(true)` if a new wire was added, `Ok(false)` if it already
+    /// existed, or [`SnarlError::UnknownNode`] if either endpoint node is missing.
+    pub fn try_connect(&mut self, from: OutPinId, to: InPinId) -> Result<bool, SnarlError> {
+        if !self.nodes.contains(from.node.0) {
+            return Err(SnarlError::UnknownNode(from.node));
+        }
+        if !self.nodes.contains(to.node.0) {
+            return Err(SnarlError::UnknownNode(to.node));
+        }
         let wire = Wire {
             out_pin: from,
             in_pin: to,
         };
-        self.wires.insert(wire)
+        Ok(self.wires.insert(wire))
     }
 
     /// Disconnects two nodes.
@@ -327,15 +380,24 @@ impl<T> Snarl<T> {
     /// Panics if either node does not exist.
     #[track_caller]
     pub fn disconnect(&mut self, from: OutPinId, to: InPinId) -> bool {
-        assert!(self.nodes.contains(from.node.0));
-        assert!(self.nodes.contains(to.node.0));
+        self.try_disconnect(from, to)
+            .expect("Snarl::disconnect: both node ids must exist")
+    }
 
+    /// Disconnects two nodes, or returns [`SnarlError::UnknownNode`] if an endpoint is invalid.
+    /// Returns `Ok(true)` if a wire was removed, `Ok(false)` if none matched.
+    pub fn try_disconnect(&mut self, from: OutPinId, to: InPinId) -> Result<bool, SnarlError> {
+        if !self.nodes.contains(from.node.0) {
+            return Err(SnarlError::UnknownNode(from.node));
+        }
+        if !self.nodes.contains(to.node.0) {
+            return Err(SnarlError::UnknownNode(to.node));
+        }
         let wire = Wire {
             out_pin: from,
             in_pin: to,
         };
-
-        self.wires.remove(&wire)
+        Ok(self.wires.remove(&wire))
     }
 
     /// Removes all connections to the node's pin.
@@ -347,8 +409,16 @@ impl<T> Snarl<T> {
     /// Panics if the node does not exist.
     #[track_caller]
     pub fn drop_inputs(&mut self, pin: InPinId) -> usize {
-        assert!(self.nodes.contains(pin.node.0));
-        self.wires.drop_inputs(pin)
+        self.try_drop_inputs(pin)
+            .expect("Snarl::drop_inputs: node id must exist")
+    }
+
+    /// Like [`Self::drop_inputs`], but returns an error if `pin.node` is not in the graph.
+    pub fn try_drop_inputs(&mut self, pin: InPinId) -> Result<usize, SnarlError> {
+        if !self.nodes.contains(pin.node.0) {
+            return Err(SnarlError::UnknownNode(pin.node));
+        }
+        Ok(self.wires.drop_inputs(pin))
     }
 
     /// Removes all connections from the node's pin.
@@ -359,8 +429,16 @@ impl<T> Snarl<T> {
     /// Panics if the node does not exist.
     #[track_caller]
     pub fn drop_outputs(&mut self, pin: OutPinId) -> usize {
-        assert!(self.nodes.contains(pin.node.0));
-        self.wires.drop_outputs(pin)
+        self.try_drop_outputs(pin)
+            .expect("Snarl::drop_outputs: node id must exist")
+    }
+
+    /// Like [`Self::drop_outputs`], but returns an error if `pin.node` is not in the graph.
+    pub fn try_drop_outputs(&mut self, pin: OutPinId) -> Result<usize, SnarlError> {
+        if !self.nodes.contains(pin.node.0) {
+            return Err(SnarlError::UnknownNode(pin.node));
+        }
+        Ok(self.wires.drop_outputs(pin))
     }
 
     /// Returns reference to the node.
@@ -831,5 +909,48 @@ impl InPin {
             id: pin,
             remotes: snarl.wires.wired_outputs(pin).collect(),
         }
+    }
+}
+
+#[cfg(test)]
+mod snarl_try_api_tests {
+    use egui::Pos2;
+
+    use super::*;
+
+    #[test]
+    fn try_connect_errs_on_unknown_from_node() {
+        let mut s = Snarl::<()>::new();
+        let b = s.insert_node(Pos2::ZERO, ());
+        let bad = NodeId(42);
+        let out = OutPinId {
+            node: bad,
+            output: 0,
+        };
+        let inp = InPinId { node: b, input: 0 };
+        assert!(matches!(
+            s.try_connect(out, inp),
+            Err(SnarlError::UnknownNode(n)) if n == bad
+        ));
+    }
+
+    #[test]
+    fn try_connect_ok_and_duplicate() {
+        let mut s = Snarl::<()>::new();
+        let a = s.insert_node(Pos2::ZERO, ());
+        let b = s.insert_node(Pos2::ZERO, ());
+        let out = OutPinId { node: a, output: 0 };
+        let inp = InPinId { node: b, input: 0 };
+        assert!(s.try_connect(out, inp).unwrap());
+        assert!(!s.try_connect(out, inp).unwrap());
+    }
+
+    #[test]
+    fn try_remove_node_unknown() {
+        let mut s = Snarl::<()>::new();
+        assert!(matches!(
+            s.try_remove_node(NodeId(99)),
+            Err(SnarlError::UnknownNode(_))
+        ));
     }
 }

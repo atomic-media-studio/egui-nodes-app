@@ -32,7 +32,7 @@ use self::{
 };
 
 pub use self::{
-    background_pattern::{BackgroundPattern, Grid},
+    background_pattern::{BackgroundPattern, Grid, GridRenderMode},
     pin::{AnyPins, PinInfo, PinShape, PinWireInfo, SnarlPin},
     state::get_selected_nodes,
     viewer::SnarlViewer,
@@ -693,7 +693,7 @@ impl SnarlStyle {
     }
 
     fn get_wire_smoothness(&self) -> f32 {
-        self.wire_smoothness.unwrap_or(1.0)
+        self.wire_smoothness.unwrap_or(0.0)
     }
 }
 
