@@ -1,5 +1,6 @@
-//! **egui-nodes** — headless [`graph::Graph`] + [`SnarlAdapter`] + [`NodesView`] so applications can
-//! depend on this crate alone; the Snarl fork is an implementation detail.
+//! **egui_nodes** (library half of the `egui-nodes-app` package) — headless [`graph::Graph`] +
+//! [`SnarlAdapter`] + [`NodesView`]. The Snarl fork is a normal path dependency; consumers of the
+//! library need not name `egui-snarl` unless they use [`egui_snarl`] re-exports.
 //!
 //! ## Layers
 //! - [`graph`] — `Graph<N, E>`, [`Node`], [`Link`], pins (no egui).

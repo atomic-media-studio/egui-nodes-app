@@ -1,8 +1,7 @@
 [workspace]
 members = [
     "crates/egui-snarl-fork",
-    "crates/egui-nodes",
-    "crates/nodes-app",
+    "crates/egui-nodes-app",
 ]
-default-members = ["crates/nodes-app"]
+default-members = ["crates/egui-nodes-app"]
 resolver = "2"

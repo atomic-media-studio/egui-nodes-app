@@ -1,12 +1,18 @@
 # egui-nodes-app
 
-Workspace layout:
+Workspace:
 
-| Path | Crate | Purpose |
-|------|--------|---------|
-| `crates/egui-snarl-fork` | **`egui-snarl`** | Fork of the node-graph UI engine (package name unchanged → `use egui_snarl::…`). |
-| `crates/egui-nodes` | **`egui-nodes`** | Headless [`Graph<N, E>`](crates/egui-nodes/src/graph/mod.rs), [`SnarlAdapter`](crates/egui-nodes/src/adapter.rs), [`NodesView`](crates/egui-nodes/src/view.rs) — **apps should depend on this**, not on the fork directly. |
-| `crates/nodes-app` | **`nodes-app`** | Demo / template binary. |
+```text
+Cargo.toml                      # workspace
+crates/egui-snarl-fork/         # [lib] name = "egui-snarl" — forked node UI engine
+crates/egui-nodes-app/          # one package: [lib] egui_nodes + [bin] egui-nodes-app
+    src/lib.rs                  # reusable core: Graph, SnarlAdapter, NodesView, …
+    src/main.rs                 # editor shell (eframe, menus, demo)
+    src/style_panel.rs          # Snarl style UI (kept out of main.rs)
+```
+
+- **Library:** `egui_nodes` — same crate as the app; import as `egui_nodes::…` from `src/lib.rs` and submodules.
+- **Binary:** [`egui-nodes-app`](crates/egui-nodes-app/src/main.rs) — `cargo run` builds the editor; Snarl style tuning lives in [`style_panel.rs`](crates/egui-nodes-app/src/style_panel.rs).
 
 ![Rust CI](https://github.com/atomic-media-studio/egui-app/actions/workflows/rust-ci.yml/badge.svg)
 
@@ -16,11 +22,9 @@ Workspace layout:
 cargo run
 ```
 
+(`default-members` points at `egui-nodes-app`.)
+
 ## Dependency rule
 
-- **Application code**: `egui-nodes` (+ `eframe`, etc.).
-- **Low-level Snarl**: only if you need it — `egui_nodes::egui_snarl` is re-exported for power users.
-
-## Foundational graph (headless)
-
-[`egui_nodes::Graph<N, E>`](crates/egui-nodes/src/graph/mod.rs) uses [`NodeId`](crates/egui-nodes/src/graph/id.rs), [`PinId`](crates/egui-nodes/src/graph/id.rs), [`LinkId`](crates/egui-nodes/src/graph/id.rs) and does **not** depend on egui. Serialize with [`egui_nodes::save_graph`](crates/egui-nodes/src/io.rs) / [`load_graph`](crates/egui-nodes/src/io.rs) when `serde` is enabled on your payload types.
+Application code uses the **`egui_nodes`** library (this package’s `[lib]`).  
+The Snarl fork is a **path dependency of that library**; the binary does not add a separate Snarl dependency beyond the package `Cargo.toml`.
