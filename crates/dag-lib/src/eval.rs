@@ -44,7 +44,8 @@ where
     C: EvalContext,
     EV: NodeEvaluator<N, E, C>,
 {
-    pub fn new(graph: Graph<N, E>, evaluator: EV) -> Self {
+    pub fn new(mut graph: Graph<N, E>, evaluator: EV) -> Self {
+        graph.sync_incoming_with_links();
         let topo_order = compute_topological_order(&graph);
         Self {
             graph,
@@ -152,7 +153,10 @@ fn kahn_topological_prefix<N, E>(graph: &Graph<N, E>) -> Vec<NodeId> {
     out
 }
 
-/// Collect values for each **input** pin of `node_id` by following incoming links.
+/// Collect values for each **input** pin of `node_id` using [`Graph::incoming`].
+///
+/// Ensure [`Graph::incoming`] is populated (e.g. via [`Graph::connect`], [`Graph::sync_incoming_with_links`],
+/// or [`Executor::new`] which calls `sync_incoming_with_links`).
 pub fn gather_inputs_for_node<N, E>(
     graph: &Graph<N, E>,
     node_id: NodeId,
@@ -163,12 +167,9 @@ pub fn gather_inputs_for_node<N, E>(
     };
     let mut result = Vec::new();
     for pin in &node.inputs {
-        for link in &graph.links {
-            if link.to == pin.id {
-                if let Some(v) = values_at_pins.get(&link.from) {
-                    result.push((pin.id, v.clone()));
-                }
-                break;
+        if let Some(&src) = graph.incoming.get(&pin.id) {
+            if let Some(v) = values_at_pins.get(&src) {
+                result.push((pin.id, v.clone()));
             }
         }
     }

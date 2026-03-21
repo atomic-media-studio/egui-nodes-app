@@ -15,6 +15,8 @@ pub enum GraphError {
         from: PinId,
         to: PinId,
     },
+    /// An input pin already has an incoming link; disconnect it first.
+    InputPinOccupied { to: PinId },
     SelfLoop,
 }
 
@@ -28,6 +30,7 @@ impl fmt::Display for GraphError {
             Self::NotOutputPin(id) => write!(f, "expected output pin, got {}", id.get()),
             Self::NotInputPin(id) => write!(f, "expected input pin, got {}", id.get()),
             Self::DuplicateLink { .. } => write!(f, "duplicate link"),
+            Self::InputPinOccupied { .. } => write!(f, "input pin already connected"),
             Self::SelfLoop => write!(f, "cannot link a pin to itself"),
         }
     }

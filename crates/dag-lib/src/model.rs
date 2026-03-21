@@ -75,6 +75,12 @@ pub struct Link<E> {
 pub struct Graph<N, E> {
     pub nodes: Vec<Node<N>>,
     pub links: Vec<Link<E>>,
+    /// Input pin → source output pin (at most one incoming link per input pin; see [`Graph::connect`]).
+    #[cfg_attr(feature = "serde", serde(default))]
+    pub incoming: HashMap<PinId, PinId>,
+    /// `(output pin, input pin)` pairs for O(1) duplicate-edge checks; kept in sync with [`Graph::links`].
+    #[cfg_attr(feature = "serde", serde(skip, default))]
+    link_set: HashSet<(PinId, PinId)>,
     node_index: HashMap<NodeId, usize>,
     pin_index: HashMap<PinId, (NodeId, usize, PinKind)>,
     next_node: u32,
@@ -93,6 +99,8 @@ impl<N, E> Graph<N, E> {
         Self {
             nodes: Vec::new(),
             links: Vec::new(),
+            incoming: HashMap::new(),
+            link_set: HashSet::new(),
             node_index: HashMap::new(),
             pin_index: HashMap::new(),
             next_node: 1,
@@ -188,6 +196,18 @@ impl<N, E> Graph<N, E> {
             .map(|&(n, i, k)| (n, i, matches!(k, PinKind::Output)))
     }
 
+    /// Rebuilds [`Graph::incoming`] and [`Graph::link_set`] from [`Graph::links`]. Call after
+    /// deserializing graphs that omitted derived fields, or if links were edited without going
+    /// through [`Graph::connect`] / [`Graph::disconnect_link`].
+    pub fn sync_incoming_with_links(&mut self) {
+        self.incoming.clear();
+        self.link_set.clear();
+        for l in &self.links {
+            self.incoming.insert(l.to, l.from);
+            self.link_set.insert((l.from, l.to));
+        }
+    }
+
     /// `from` must be an output pin; `to` must be an input pin.
     pub fn connect(&mut self, from: PinId, to: PinId, data: E) -> Result<LinkId, GraphError> {
         if from == to {
@@ -212,10 +232,11 @@ impl<N, E> Graph<N, E> {
                 }
             })?;
 
-        for l in &self.links {
-            if l.from == from && l.to == to {
-                return Err(GraphError::DuplicateLink { from, to });
-            }
+        if self.link_set.contains(&(from, to)) {
+            return Err(GraphError::DuplicateLink { from, to });
+        }
+        if self.incoming.contains_key(&to) {
+            return Err(GraphError::InputPinOccupied { to });
         }
 
         let Some(lid) = self.alloc_link_id() else {
@@ -227,18 +248,27 @@ impl<N, E> Graph<N, E> {
             to,
             data,
         });
+        self.link_set.insert((from, to));
+        self.incoming.insert(to, from);
         Ok(lid)
     }
 
     pub fn disconnect_link(&mut self, id: LinkId) -> Option<Link<E>> {
         let pos = self.links.iter().position(|l| l.id == id)?;
-        Some(self.links.remove(pos))
+        let removed = self.links.remove(pos);
+        self.incoming.remove(&removed.to);
+        self.link_set.remove(&(removed.from, removed.to));
+        Some(removed)
     }
 
     /// Remove a node and all links touching its pins.
     pub fn remove_node(&mut self, id: NodeId) -> Option<Node<N>> {
         let idx = self.node_index.remove(&id)?;
-        let node = self.nodes.remove(idx);
+        let node = self.nodes.swap_remove(idx);
+        if idx < self.nodes.len() {
+            let moved_id = self.nodes[idx].id;
+            self.node_index.insert(moved_id, idx);
+        }
         let dead: HashSet<PinId> = node
             .inputs
             .iter()
@@ -250,10 +280,7 @@ impl<N, E> Graph<N, E> {
         }
         self.links
             .retain(|l| !dead.contains(&l.from) && !dead.contains(&l.to));
-        self.node_index.clear();
-        for (i, n) in self.nodes.iter().enumerate() {
-            self.node_index.insert(n.id, i);
-        }
+        self.sync_incoming_with_links();
         Some(node)
     }
 }
@@ -264,6 +291,7 @@ impl<N, E> Graph<N, E> {
         self.links.retain(|l| {
             self.pin_index.contains_key(&l.from) && self.pin_index.contains_key(&l.to)
         });
+        self.sync_incoming_with_links();
     }
 
     pub fn links_iter(&self) -> impl Iterator<Item = &Link<E>> {
@@ -272,7 +300,7 @@ impl<N, E> Graph<N, E> {
 
     /// Edges keyed by (output pin, input pin) for adapter sync.
     pub fn link_key_set(&self) -> HashSet<(PinId, PinId)> {
-        self.links.iter().map(|l| (l.from, l.to)).collect()
+        self.link_set.clone()
     }
 }
 
@@ -289,6 +317,36 @@ mod tests {
         let in_b = g.node(b).unwrap().inputs[0].id;
         let _ = g.connect(out_a, in_b, ()).unwrap();
         assert_eq!(g.links.len(), 1);
+        assert_eq!(g.incoming.get(&in_b), Some(&out_a));
+        assert!(g.link_key_set().contains(&(out_a, in_b)));
+    }
+
+    #[test]
+    fn second_link_to_same_input_is_error() {
+        let mut g = Graph::<(), ()>::new();
+        let a = g.add_node((), Layout2d::default(), 0, 1);
+        let b = g.add_node((), Layout2d::default(), 0, 1);
+        let c = g.add_node((), Layout2d::default(), 1, 0);
+        let out_a = g.node(a).unwrap().outputs[0].id;
+        let out_b = g.node(b).unwrap().outputs[0].id;
+        let in_c = g.node(c).unwrap().inputs[0].id;
+        g.connect(out_a, in_c, ()).unwrap();
+        assert_eq!(
+            g.connect(out_b, in_c, ()),
+            Err(GraphError::InputPinOccupied { to: in_c })
+        );
+    }
+
+    #[test]
+    fn remove_node_swap_updates_index_only() {
+        let mut g = Graph::<&str, ()>::new();
+        let a = g.add_node("a", Layout2d::default(), 0, 0);
+        let b = g.add_node("b", Layout2d::default(), 0, 0);
+        let c = g.add_node("c", Layout2d::default(), 0, 0);
+        g.remove_node(b).unwrap();
+        assert_eq!(g.nodes.len(), 2);
+        assert_eq!(g.node(a).unwrap().data, "a");
+        assert_eq!(g.node(c).unwrap().data, "c");
     }
 }
 
@@ -299,11 +357,18 @@ mod serde_roundtrip_tests {
     #[test]
     fn graph_json_roundtrip() {
         let mut g = Graph::<i32, ()>::new();
-        let _ = g.add_node(7, Layout2d::new(3.0, 4.0), 1, 1);
+        let a = g.add_node(7, Layout2d::new(3.0, 4.0), 1, 1);
+        let b = g.add_node(8, Layout2d::new(5.0, 6.0), 1, 0);
+        let oa = g.node(a).unwrap().outputs[0].id;
+        let ib = g.node(b).unwrap().inputs[0].id;
+        g.connect(oa, ib, ()).unwrap();
         let json = serde_json::to_string(&g).unwrap();
-        let back: Graph<i32, ()> = serde_json::from_str(&json).unwrap();
+        let mut back: Graph<i32, ()> = serde_json::from_str(&json).unwrap();
         assert_eq!(g.nodes.len(), back.nodes.len());
         assert_eq!(g.nodes[0].data, back.nodes[0].data);
         assert_eq!(g.links.len(), back.links.len());
+        back.sync_incoming_with_links();
+        assert_eq!(back.incoming.get(&ib), Some(&oa));
+        assert!(back.link_key_set().contains(&(oa, ib)));
     }
 }
