@@ -3,13 +3,13 @@ use std::sync::Arc;
 use egui::emath::TSTransform;
 use egui::{Context, Frame, Id, Painter, Pos2, Rect, Style, Ui};
 
-use egui_snarl::ui::{
+use egui_snarl_fork::ui::{
     AnyPins, BackgroundPattern, SnarlStyle, SnarlViewer, get_selected_nodes,
 };
-use egui_snarl::{InPin, InPinId, NodeId, OutPin, OutPinId, Snarl};
+use egui_snarl_fork::{InPin, InPinId, NodeId, OutPin, OutPinId, Snarl};
 
-use crate::state::InteractionMode;
-use crate::style::NodesStyle;
+use crate::ui::state::InteractionMode;
+use crate::ui::style::NodesStyle;
 
 /// Wraps your [`SnarlViewer`] to apply [`NodesStyle`] node strokes and enforce [`InteractionMode::Inspect`].
 pub struct NodesShellViewer<V> {
@@ -116,12 +116,12 @@ impl<T, V: SnarlViewer<T>> SnarlViewer<T> for NodesShellViewer<V> {
 
     fn node_layout(
         &mut self,
-        default: egui_snarl::ui::NodeLayout,
+        default: egui_snarl_fork::ui::NodeLayout,
         node: NodeId,
         inputs: &[InPin],
         outputs: &[OutPin],
         snarl: &Snarl<T>,
-    ) -> egui_snarl::ui::NodeLayout {
+    ) -> egui_snarl_fork::ui::NodeLayout {
         self.inner
             .node_layout(default, node, inputs, outputs, snarl)
     }
@@ -146,7 +146,7 @@ impl<T, V: SnarlViewer<T>> SnarlViewer<T> for NodesShellViewer<V> {
         pin: &InPin,
         ui: &mut Ui,
         snarl: &mut Snarl<T>,
-    ) -> impl egui_snarl::ui::SnarlPin + 'static {
+    ) -> impl egui_snarl_fork::ui::SnarlPin + 'static {
         self.inner.show_input(pin, ui, snarl)
     }
 
@@ -159,7 +159,7 @@ impl<T, V: SnarlViewer<T>> SnarlViewer<T> for NodesShellViewer<V> {
         pin: &OutPin,
         ui: &mut Ui,
         snarl: &mut Snarl<T>,
-    ) -> impl egui_snarl::ui::SnarlPin + 'static {
+    ) -> impl egui_snarl_fork::ui::SnarlPin + 'static {
         self.inner.show_output(pin, ui, snarl)
     }
 

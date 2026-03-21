@@ -1,11 +1,12 @@
-//! Snarl as view/interaction engine: [`SnarlAdapter`] keeps [`crate::graph::Graph`] and [`Snarl`](egui_snarl::Snarl) in sync.
+//! Snarl as view/interaction engine: [`SnarlAdapter`] keeps [`core_graph::Graph`] and [`Snarl`](egui_snarl_fork::Snarl) in sync.
+
+pub mod viewer;
 
 use std::collections::{HashMap, HashSet};
 use std::fmt;
 
-use egui_snarl::{InPinId, NodeId as SnarlNodeId, OutPinId, Snarl};
-
-use crate::graph::{Graph, GraphError, Layout2d, LinkId, NodeId, PinId};
+use core_graph::{Graph, GraphError, Layout2d, LinkId, NodeId, PinId};
+use egui_snarl_fork::{InPinId, NodeId as SnarlNodeId, OutPinId, Snarl};
 use crate::layout_bridge::{layout_to_pos2, pos2_to_layout};
 
 /// Payload stored in each Snarl cell — ties slab node back to [`NodeId`] and holds user `N`.

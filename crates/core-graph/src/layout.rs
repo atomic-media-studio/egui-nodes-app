@@ -1,4 +1,4 @@
-/// 2D position in graph space (same units as Snarl node positions). No egui types.
+/// 2D position in graph space (same units as a UI node graph when embedded). No windowing types.
 #[derive(Clone, Copy, Debug, PartialEq, Default)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct Layout2d {

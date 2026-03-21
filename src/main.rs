@@ -8,7 +8,7 @@ use std::rc::Rc;
 
 use eframe::egui;
 use egui_phosphor::regular;
-use egui_nodes::egui_snarl::{InPin, OutPin, Snarl, ui::{PinInfo, SnarlViewer}};
+use egui_nodes::egui_snarl_fork::{InPin, OutPin, Snarl, ui::{PinInfo, SnarlViewer}};
 use egui_nodes::{
     InteractionMode, Layout2d, NodeData, NodesShellViewer, NodesStyle, NodesView, NodesViewState,
     SnarlAdapter,

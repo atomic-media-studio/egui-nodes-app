@@ -1,4 +1,4 @@
-//! Opaque identifiers — stable across serialization; not Snarl slab indices.
+//! Opaque identifiers — stable across serialization; not UI slab indices.
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, PartialOrd, Ord)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]

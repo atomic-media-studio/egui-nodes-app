@@ -1,6 +1,6 @@
 
 [package]
-name = "egui-snarl"
+name = "egui-snarl-fork"
 version = "0.9.0"
 edition = "2024"
 rust-version = "1.88"

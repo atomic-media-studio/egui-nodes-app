@@ -1,7 +1,30 @@
 [workspace]
 members = [
+    "crates/core-graph",
     "crates/egui-snarl-fork",
-    "crates/egui-nodes-app",
+    "crates/egui-nodes",
+    ".",
 ]
-default-members = ["crates/egui-nodes-app"]
+default-members = ["."]
 resolver = "2"
+
+[workspace.dependencies]
+egui = "0.33"
+eframe = "0.33.3"
+egui-phosphor = "0.11.0"
+
+[package]
+name = "egui-nodes-app"
+version = "0.1.0"
+edition = "2024"
+description = "Playground binary for egui-nodes (depends on the library crate only)"
+
+[[bin]]
+name = "egui-nodes-app"
+path = "src/main.rs"
+
+[dependencies]
+eframe = { workspace = true }
+egui = { workspace = true }
+egui-phosphor = { workspace = true }
+egui-nodes = { path = "crates/egui-nodes" }

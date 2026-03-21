@@ -1,18 +1,18 @@
-//! Headless directed graph: nodes with typed pins and links between pins.
-
-mod error;
-mod id;
-mod layout;
-
-pub use error::GraphError;
-pub use id::{LinkId, NodeId, PinId};
-pub use layout::Layout2d;
+//! Graph, nodes, links — headless model.
 
 use std::collections::{HashMap, HashSet};
 
+use crate::error::GraphError;
+use crate::ids::{LinkId, NodeId, PinId};
+use crate::layout::Layout2d;
+
+/// Logical pin handle — alias of [`PinId`] for APIs that prefer the word “pin”.
+pub type Pin = PinId;
+
+/// Whether a pin is an input or output port on a node.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
-enum PinKind {
+pub enum PinKind {
     Input,
     Output,
 }
@@ -31,7 +31,7 @@ pub struct Node<N> {
     pub id: NodeId,
     pub data: N,
     pub layout: Layout2d,
-    /// UI collapse (Snarl `open == !collapsed`).
+    /// UI collapse (e.g. open == !collapsed in a node editor).
     pub collapsed: bool,
     pub inputs: Vec<PinId>,
     pub outputs: Vec<PinId>,
@@ -54,7 +54,7 @@ pub struct Link<E> {
     pub data: E,
 }
 
-/// Foundational graph — portable, testable, no egui / Snarl.
+/// Foundational graph — portable, testable, no UI.
 #[derive(Clone, Debug)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 #[cfg_attr(

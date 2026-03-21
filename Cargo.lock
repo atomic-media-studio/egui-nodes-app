@@ -687,6 +687,13 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "773648b94d0e5d620f64f280777445740e61fe701025087ec8b57f45c791888b"
 
 [[package]]
+name = "core-graph"
+version = "0.1.0"
+dependencies = [
+ "serde",
+]
+
+[[package]]
 name = "core-graphics"
 version = "0.23.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -881,16 +888,25 @@ dependencies = [
 ]
 
 [[package]]
-name = "egui-nodes-app"
+name = "egui-nodes"
 version = "0.1.0"
 dependencies = [
  "anyhow",
- "eframe",
+ "core-graph",
  "egui",
- "egui-phosphor",
- "egui-snarl",
+ "egui-snarl-fork",
  "serde",
  "serde_json",
+]
+
+[[package]]
+name = "egui-nodes-app"
+version = "0.1.0"
+dependencies = [
+ "eframe",
+ "egui",
+ "egui-nodes",
+ "egui-phosphor",
 ]
 
 [[package]]
@@ -935,7 +951,7 @@ dependencies = [
 ]
 
 [[package]]
-name = "egui-snarl"
+name = "egui-snarl-fork"
 version = "0.9.0"
 dependencies = [
  "eframe",

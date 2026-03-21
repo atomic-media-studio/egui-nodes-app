@@ -4,7 +4,7 @@ use anyhow::Context;
 use serde::Serialize;
 use serde::de::DeserializeOwned;
 
-/// Pretty JSON snapshot of any serializable value (e.g. [`crate::graph::Graph`]).
+/// Pretty JSON snapshot of any serializable value (e.g. [`core_graph::Graph`]).
 pub fn save_graph<G: Serialize>(graph: &G, path: impl AsRef<Path>) -> anyhow::Result<()> {
     let path = path.as_ref();
     if let Some(parent) = path.parent() {

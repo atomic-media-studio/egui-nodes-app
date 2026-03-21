@@ -217,7 +217,7 @@ impl<T> Snarl<T> {
     /// # Examples
     ///
     /// ```
-    /// # use egui_snarl::Snarl;
+    /// # use egui_snarl_fork::Snarl;
     /// let snarl = Snarl::<()>::new();
     /// ```
     #[must_use]
@@ -234,7 +234,7 @@ impl<T> Snarl<T> {
     /// # Examples
     ///
     /// ```
-    /// # use egui_snarl::Snarl;
+    /// # use egui_snarl_fork::Snarl;
     /// let mut snarl = Snarl::<()>::new();
     /// snarl.insert_node(egui::pos2(0.0, 0.0), ());
     /// ```
@@ -254,7 +254,7 @@ impl<T> Snarl<T> {
     /// # Examples
     ///
     /// ```
-    /// # use egui_snarl::Snarl;
+    /// # use egui_snarl_fork::Snarl;
     /// let mut snarl = Snarl::<()>::new();
     /// snarl.insert_node_collapsed(egui::pos2(0.0, 0.0), ());
     /// ```
@@ -288,7 +288,7 @@ impl<T> Snarl<T> {
     /// # Examples
     ///
     /// ```
-    /// # use egui_snarl::Snarl;
+    /// # use egui_snarl_fork::Snarl;
     /// let mut snarl = Snarl::<()>::new();
     /// let node = snarl.insert_node(egui::pos2(0.0, 0.0), ());
     /// snarl.remove_node(node);

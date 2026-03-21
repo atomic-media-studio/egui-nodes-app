@@ -1,14 +1,14 @@
 use egui::{Id, Ui};
 
-use egui_snarl::ui::{SnarlViewer, SnarlWidget};
+use egui_snarl_fork::ui::{SnarlViewer, SnarlWidget};
 
-use crate::adapter::{NodeData, SnarlAdapter};
-use crate::shell::NodesShellViewer;
-use crate::state::NodesViewState;
-use crate::style::NodesStyle;
+use crate::snarl_adapter::viewer::NodesShellViewer;
+use crate::snarl_adapter::{NodeData, SnarlAdapter};
+use crate::ui::state::NodesViewState;
+use crate::ui::style::NodesStyle;
 
-/// Ergonomic widget: owns the round-trip sync around [`SnarlWidget::show`](egui_snarl::ui::SnarlWidget::show).
-/// Implement [`SnarlViewer`](egui_snarl::ui::SnarlViewer)`<`[`NodeData<N>`]`>` for your domain UI.
+/// Ergonomic widget: owns the round-trip sync around [`SnarlWidget::show`](egui_snarl_fork::ui::SnarlWidget::show).
+/// Implement [`SnarlViewer`](egui_snarl_fork::ui::SnarlViewer)`<`[`NodeData<N>`]`>` for your domain UI.
 pub struct NodesView<'a, N, E, V> {
     pub adapter: &'a mut SnarlAdapter<N, E>,
     pub view_state: &'a mut NodesViewState,

@@ -1,7 +1,7 @@
-//! Snarl visual tuning — uses types from the fork via [`egui_nodes::egui_snarl`].
+//! Snarl visual tuning — uses types from the fork via [`egui_nodes::egui_snarl_fork`].
 
 use eframe::egui;
-use egui_nodes::egui_snarl::ui::{
+use egui_nodes::egui_snarl_fork::ui::{
     BackgroundPattern, Grid, NodeLayout, PinPlacement, PinShape, SelectionStyle, SnarlStyle,
     WireLayer, WireStyle,
 };

@@ -2,7 +2,7 @@ use std::sync::Arc;
 
 use egui::{Color32, Stroke, Style};
 
-use egui_snarl::ui::{BackgroundPattern, Grid, SnarlStyle};
+use egui_snarl_fork::ui::{BackgroundPattern, Grid, SnarlStyle};
 
 /// Hooks for strokes similar in spirit to egui_graphs-style customization.
 pub trait NodeStyleHook: Send + Sync {
@@ -95,7 +95,7 @@ impl Default for GridSettings {
     }
 }
 
-/// User-facing style: Snarl draw parameters plus hooks used by [`crate::shell::NodesShellViewer`].
+/// User-facing style: Snarl draw parameters plus hooks used by [`crate::snarl_adapter::viewer::NodesShellViewer`].
 #[derive(Clone)]
 pub struct NodesStyle {
     pub node_style: Arc<dyn NodeStyleHook>,
@@ -147,7 +147,7 @@ impl NodesStyle {
         }
     }
 
-    /// Snarl style passed to [`egui_snarl::ui::SnarlWidget`]. Hooks that need egui’s global style
+    /// Snarl style passed to [`egui_snarl_fork::ui::SnarlWidget`]. Hooks that need egui’s global style
     /// run in the shell viewer; this is the copied [`SnarlStyle`] snapshot.
     pub fn to_snarl_style(&self) -> SnarlStyle {
         self.snarl

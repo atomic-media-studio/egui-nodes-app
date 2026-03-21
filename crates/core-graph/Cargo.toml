@@ -1,0 +1,12 @@
+[package]
+name = "core-graph"
+version = "0.1.0"
+edition = "2024"
+description = "Headless graph model: nodes, pins, links — no GUI"
+
+[features]
+default = []
+serde = ["dep:serde"]
+
+[dependencies]
+serde = { version = "1", optional = true, features = ["derive"] }

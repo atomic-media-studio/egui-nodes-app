@@ -1,6 +1,6 @@
 use core::fmt;
 
-use super::id::{LinkId, NodeId, PinId};
+use crate::ids::{LinkId, NodeId, PinId};
 
 /// Headless graph errors (no UI).
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]

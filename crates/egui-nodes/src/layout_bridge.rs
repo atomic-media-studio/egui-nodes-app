@@ -1,6 +1,6 @@
 use egui::Pos2;
 
-use crate::graph::Layout2d;
+use core_graph::Layout2d;
 
 #[inline]
 pub fn layout_to_pos2(layout: Layout2d) -> Pos2 {
