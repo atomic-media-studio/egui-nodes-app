@@ -1,13 +1,14 @@
-//! Snarl as view/interaction engine: [`SnarlAdapter`] keeps [`core_graph::Graph`] and [`Snarl`](egui_snarl_fork::Snarl) in sync.
+//! Editor session: keeps [`core_graph::Graph`] and [`Snarl`](crate::ui::nodes_engine::Snarl) in sync.
 
-pub mod viewer;
+pub mod shell_viewer;
 
 use std::collections::{HashMap, HashSet};
 use std::fmt;
 
 use core_graph::{Graph, GraphError, Layout2d, LinkId, NodeId, PinId};
-use egui_snarl_fork::{InPinId, NodeId as SnarlNodeId, OutPinId, Snarl};
+
 use crate::layout_bridge::{layout_to_pos2, pos2_to_layout};
+use crate::ui::nodes_engine::{InPinId, NodeId as SnarlNodeId, OutPinId, Snarl};
 
 /// Payload stored in each Snarl cell — ties slab node back to [`NodeId`] and holds user `N`.
 #[derive(Clone, Debug)]
@@ -16,7 +17,7 @@ pub struct NodeData<N> {
     pub user: N,
 }
 
-/// Accumulated edits since the last [`SnarlAdapter::take_graph_changes`].
+/// Accumulated edits since the last [`NodesEditor::take_graph_changes`].
 ///
 /// Use this to drive [`core_graph::Executor::recompute_topology`] / evaluation only when something
 /// actually changed, instead of every frame.
@@ -36,14 +37,14 @@ impl GraphChanges {
 }
 
 #[derive(Debug)]
-pub enum AdapterError {
+pub enum NodesEditorError {
     Graph(GraphError),
     UnmappedNode(NodeId),
     UnmappedSnarlNode(SnarlNodeId),
     SnarlRejectedWire,
 }
 
-impl fmt::Display for AdapterError {
+impl fmt::Display for NodesEditorError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
             Self::Graph(e) => write!(f, "{e}"),
@@ -54,7 +55,7 @@ impl fmt::Display for AdapterError {
     }
 }
 
-impl std::error::Error for AdapterError {
+impl std::error::Error for NodesEditorError {
     fn source(&self) -> Option<&(dyn std::error::Error + 'static)> {
         match self {
             Self::Graph(e) => Some(e),
@@ -63,7 +64,7 @@ impl std::error::Error for AdapterError {
     }
 }
 
-impl From<GraphError> for AdapterError {
+impl From<GraphError> for NodesEditorError {
     fn from(value: GraphError) -> Self {
         Self::Graph(value)
     }
@@ -74,7 +75,7 @@ impl From<GraphError> for AdapterError {
 /// After [`crate::NodesView::show`](crate::ui::view::NodesView::show), call [`Self::take_graph_changes`]
 /// once to see whether topology or payloads changed — then refresh a [`core_graph::Executor`] only when
 /// needed (e.g. [`GraphChanges::topology_changed`] ⇒ [`core_graph::Executor::recompute_topology`]).
-pub struct SnarlAdapter<N, E> {
+pub struct NodesEditor<N, E> {
     pub graph: Graph<N, E>,
     pub snarl: Snarl<NodeData<N>>,
     node_to_snarl: HashMap<NodeId, SnarlNodeId>,
@@ -82,13 +83,13 @@ pub struct SnarlAdapter<N, E> {
     pending_changes: GraphChanges,
 }
 
-impl<N, E> Default for SnarlAdapter<N, E> {
+impl<N, E> Default for NodesEditor<N, E> {
     fn default() -> Self {
         Self::new()
     }
 }
 
-impl<N, E> SnarlAdapter<N, E> {
+impl<N, E> NodesEditor<N, E> {
     pub fn new() -> Self {
         Self {
             graph: Graph::new(),
@@ -113,35 +114,35 @@ impl<N, E> SnarlAdapter<N, E> {
         self.snarl_to_node.get(&snarl).copied()
     }
 
-    fn map_snarl_pin_out(&self, pin: PinId) -> Result<(SnarlNodeId, usize), AdapterError> {
+    fn map_snarl_pin_out(&self, pin: PinId) -> Result<(SnarlNodeId, usize), NodesEditorError> {
         let (nid, port, is_out) = self
             .graph
             .pin_port(pin)
-            .ok_or(AdapterError::Graph(GraphError::UnknownPin(pin)))?;
+            .ok_or(NodesEditorError::Graph(GraphError::UnknownPin(pin)))?;
         if !is_out {
-            return Err(AdapterError::Graph(GraphError::NotOutputPin(pin)));
+            return Err(NodesEditorError::Graph(GraphError::NotOutputPin(pin)));
         }
         let sn = self
             .node_to_snarl
             .get(&nid)
             .copied()
-            .ok_or(AdapterError::UnmappedNode(nid))?;
+            .ok_or(NodesEditorError::UnmappedNode(nid))?;
         Ok((sn, port))
     }
 
-    fn map_snarl_pin_in(&self, pin: PinId) -> Result<(SnarlNodeId, usize), AdapterError> {
+    fn map_snarl_pin_in(&self, pin: PinId) -> Result<(SnarlNodeId, usize), NodesEditorError> {
         let (nid, port, is_out) = self
             .graph
             .pin_port(pin)
-            .ok_or(AdapterError::Graph(GraphError::UnknownPin(pin)))?;
+            .ok_or(NodesEditorError::Graph(GraphError::UnknownPin(pin)))?;
         if is_out {
-            return Err(AdapterError::Graph(GraphError::NotInputPin(pin)));
+            return Err(NodesEditorError::Graph(GraphError::NotInputPin(pin)));
         }
         let sn = self
             .node_to_snarl
             .get(&nid)
             .copied()
-            .ok_or(AdapterError::UnmappedNode(nid))?;
+            .ok_or(NodesEditorError::UnmappedNode(nid))?;
         Ok((sn, port))
     }
 
@@ -172,8 +173,8 @@ impl<N, E> SnarlAdapter<N, E> {
     }
 
     /// Connect output pin → input pin in both stores.
-    pub fn connect_pins(&mut self, from: PinId, to: PinId, data: E) -> Result<LinkId, AdapterError> {
-        let lid = self.graph.connect(from, to, data).map_err(AdapterError::from)?;
+    pub fn connect_pins(&mut self, from: PinId, to: PinId, data: E) -> Result<LinkId, NodesEditorError> {
+        let lid = self.graph.connect(from, to, data).map_err(NodesEditorError::from)?;
         let (a, oi) = self.map_snarl_pin_out(from)?;
         let (b, ii) = self.map_snarl_pin_in(to)?;
         let ok = self.snarl.connect(
@@ -188,7 +189,7 @@ impl<N, E> SnarlAdapter<N, E> {
         );
         if !ok {
             let _ = self.graph.disconnect_link(lid);
-            return Err(AdapterError::SnarlRejectedWire);
+            return Err(NodesEditorError::SnarlRejectedWire);
         }
         self.pending_changes.topology_changed = true;
         self.pending_changes.payload_or_layout_changed = true;
@@ -290,5 +291,4 @@ impl<N, E> SnarlAdapter<N, E> {
         let node = self.graph.node(nid).ok_or(())?;
         node.inputs.get(p.input).map(|pin| pin.id).ok_or(())
     }
-
 }

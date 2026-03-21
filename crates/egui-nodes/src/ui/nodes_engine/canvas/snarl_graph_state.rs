@@ -6,7 +6,7 @@ use egui::{
 };
 use smallvec::{SmallVec, ToSmallVec, smallvec};
 
-use crate::{InPinId, NodeId, OutPinId, Snarl};
+use super::super::{InPinId, NodeId, OutPinId, Snarl};
 
 use super::{SnarlWidget, transform_matching_points};
 

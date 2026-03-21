@@ -1,14 +1,13 @@
-//! **egui-nodes** — [`SnarlAdapter`] + [`NodesView`] on top of [`core_graph`] and [`egui_snarl_fork`].
-//! The portable graph model lives in **`core-graph`**; this crate is the egui / Snarl layer.
+//! **egui-nodes** — [`NodesEditor`] + [`NodesView`] on top of [`core_graph`] and [`ui::nodes_engine`].
+//! The portable graph model lives in **`core-graph`**; this crate is the egui / nodes layer.
 //!
 //! ## Layers
 //! - **`core-graph`** — `Graph<N, E>`, [`Node`], [`Link`], ids, [`Executor`](core_graph::Executor) (dependency; re-exported below).
-//! - [`snarl_adapter`] — [`SnarlAdapter`], [`NodeData`], sync with [`egui_snarl_fork::Snarl`].
-//! - [`ui`] — widget, state, and presentation hooks.
+//! - [`NodesEditor`](crate::NodesEditor), [`NodeData`], sync with [`Snarl`](crate::ui::nodes_engine::Snarl).
+//! - [`ui`] — graph engine, editor session, canvas, view state, and styling.
 
 pub mod io;
 pub mod layout_bridge;
-pub mod snarl_adapter;
 pub mod ui;
 
 pub use core_graph::{
@@ -17,17 +16,26 @@ pub use core_graph::{
 };
 pub use io::{load_graph, save_graph};
 pub use layout_bridge::{layout_to_pos2, pos2_to_layout};
-pub use snarl_adapter::viewer::NodesShellViewer;
-pub use snarl_adapter::{AdapterError, GraphChanges, NodeData, SnarlAdapter};
 pub use ui::{
-    BackgroundStyle, DefaultEdgeStyleHook, DefaultNodeStyleHook, EdgeStyleHook, GridSettings,
-    InteractionMode, NodeStyleHook, NodesStyle, NodesView, NodesViewState, PanZoomState,
-    SelectionState,
+    BackgroundStyle, DefaultEdgeStyleHook, DefaultNodeStyleHook, EdgeStyleHook, GraphChanges,
+    GridSettings, InteractionMode, NodeData, NodeStyleHook, NodesEditor, NodesEditorError,
+    NodesShellViewer, NodesStyle, NodesView, NodesViewState, PanZoomState, SelectionState,
 };
 
 /// Re-export the headless graph crate for `use egui_nodes::core_graph::…` or version pinning.
 pub use core_graph;
 
-/// Re-export the Snarl engine for advanced users (custom widgets, probes). Prefer [`NodesView`] for
-/// normal apps.
-pub use egui_snarl_fork;
+/// Same module layout as the old `egui-snarl-fork` crate: graph types plus a `ui` submodule for the
+/// widget (`SnarlWidget`, `SnarlStyle`, …).
+pub mod egui_snarl_fork {
+    pub use crate::ui::nodes_engine::*;
+    pub mod ui {
+        pub use crate::ui::nodes_engine::canvas::*;
+    }
+}
+
+/// Previous name for [`NodesEditor`].
+pub type SnarlAdapter<N, E> = NodesEditor<N, E>;
+
+/// Previous name for [`NodesEditorError`].
+pub type AdapterError = NodesEditorError;

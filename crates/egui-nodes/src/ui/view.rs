@@ -1,16 +1,15 @@
 use egui::{Id, Ui};
 
-use egui_snarl_fork::ui::{SnarlViewer, SnarlWidget};
-
-use crate::snarl_adapter::viewer::NodesShellViewer;
-use crate::snarl_adapter::{NodeData, SnarlAdapter};
+use crate::ui::editor::shell_viewer::NodesShellViewer;
+use crate::ui::editor::{NodeData, NodesEditor};
+use crate::ui::snarl_canvas::{SnarlViewer, SnarlWidget};
 use crate::ui::state::NodesViewState;
 use crate::ui::style::NodesStyle;
 
-/// Ergonomic widget: owns the round-trip sync around [`SnarlWidget::show`](egui_snarl_fork::ui::SnarlWidget::show).
-/// Implement [`SnarlViewer`](egui_snarl_fork::ui::SnarlViewer)`<`[`NodeData<N>`]`>` for your domain UI.
+/// Ergonomic widget: owns the round-trip sync around [`SnarlWidget::show`](crate::ui::snarl_canvas::SnarlWidget::show).
+/// Implement [`SnarlViewer`](crate::ui::snarl_canvas::SnarlViewer)`<`[`NodeData<N>`]`>` for your domain UI.
 pub struct NodesView<'a, N, E, V> {
-    pub adapter: &'a mut SnarlAdapter<N, E>,
+    pub editor: &'a mut NodesEditor<N, E>,
     pub view_state: &'a mut NodesViewState,
     pub style: &'a NodesStyle,
     pub viewer: &'a mut NodesShellViewer<V>,
@@ -19,13 +18,13 @@ pub struct NodesView<'a, N, E, V> {
 
 impl<'a, N, E, V> NodesView<'a, N, E, V> {
     pub fn new(
-        adapter: &'a mut SnarlAdapter<N, E>,
+        editor: &'a mut NodesEditor<N, E>,
         view_state: &'a mut NodesViewState,
         style: &'a NodesStyle,
         viewer: &'a mut NodesShellViewer<V>,
     ) -> Self {
         Self {
-            adapter,
+            editor,
             view_state,
             style,
             viewer,
@@ -49,7 +48,7 @@ impl<'a, N, E, V> NodesView<'a, N, E, V> {
         E: Default + Clone,
         V: SnarlViewer<NodeData<N>>,
     {
-        self.adapter.sync_snarl_payloads_from_graph();
+        self.editor.sync_snarl_payloads_from_graph();
         self.viewer.prepare(
             self.snarl_widget_id,
             self.view_state.mode,
@@ -60,8 +59,8 @@ impl<'a, N, E, V> NodesView<'a, N, E, V> {
         let r = SnarlWidget::new()
             .id(self.snarl_widget_id)
             .style(snarl_style)
-            .show(&mut self.adapter.snarl, self.viewer, ui);
-        self.adapter.sync_graph_from_snarl();
+            .show(&mut self.editor.snarl, self.viewer, ui);
+        self.editor.sync_graph_from_snarl();
         r
     }
 }

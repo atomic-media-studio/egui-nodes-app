@@ -16,27 +16,28 @@ use egui::{
 use egui_scale::EguiScale;
 use smallvec::SmallVec;
 
-use crate::{InPin, InPinId, Node, NodeId, OutPin, OutPinId, Snarl, ui::wire::WireId};
+use super::{InPin, InPinId, Node, NodeId, OutPin, OutPinId, Snarl};
+use self::snarl_wire::WireId;
 
-mod background_pattern;
-mod pin;
-mod scale;
-mod state;
-mod viewer;
-mod wire;
+mod snarl_background_pattern;
+mod snarl_graph_state;
+mod snarl_node_viewer;
+mod snarl_pin;
+mod snarl_scale;
+mod snarl_wire;
 
 use self::{
-    pin::AnyPin,
-    state::{NewWires, NodeState, RowHeights, SnarlState},
-    wire::{draw_wire, hit_wire, pick_wire_style},
+    snarl_graph_state::{NewWires, NodeState, RowHeights, SnarlState},
+    snarl_pin::AnyPin,
+    snarl_wire::{draw_wire, hit_wire, pick_wire_style},
 };
 
 pub use self::{
-    background_pattern::{BackgroundPattern, Grid, GridRenderMode},
-    pin::{AnyPins, PinInfo, PinShape, PinWireInfo, SnarlPin},
-    state::get_selected_nodes,
-    viewer::SnarlViewer,
-    wire::{WireLayer, WireStyle},
+    snarl_background_pattern::{BackgroundPattern, Grid, GridRenderMode},
+    snarl_graph_state::get_selected_nodes,
+    snarl_node_viewer::SnarlViewer,
+    snarl_pin::{AnyPins, PinInfo, PinShape, PinWireInfo, SnarlPin},
+    snarl_wire::{WireLayer, WireStyle},
 };
 
 /// Controls how header, pins, body and footer are placed in the node.

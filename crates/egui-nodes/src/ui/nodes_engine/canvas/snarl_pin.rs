@@ -1,6 +1,6 @@
 use egui::{Color32, Painter, Rect, Shape, Stroke, Style, Vec2, epaint::PathShape, pos2, vec2};
 
-use crate::{InPinId, OutPinId};
+use super::super::{InPinId, OutPinId};
 
 use super::{SnarlStyle, WireStyle};
 

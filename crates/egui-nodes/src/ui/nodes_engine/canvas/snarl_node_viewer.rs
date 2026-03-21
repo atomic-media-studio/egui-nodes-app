@@ -1,9 +1,9 @@
 use egui::{emath::TSTransform, Painter, Pos2, Rect, Style, Ui};
 
-use crate::{InPin, InPinId, NodeId, OutPin, OutPinId, Snarl};
+use super::super::{InPin, InPinId, NodeId, OutPin, OutPinId, Snarl};
 
 use super::{
-    pin::{AnyPins, SnarlPin},
+    snarl_pin::{AnyPins, SnarlPin},
     BackgroundPattern, NodeLayout, SnarlStyle,
 };
 

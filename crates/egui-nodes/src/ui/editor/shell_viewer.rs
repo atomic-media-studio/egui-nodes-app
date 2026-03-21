@@ -3,10 +3,10 @@ use std::sync::Arc;
 use egui::emath::TSTransform;
 use egui::{Context, Frame, Id, Painter, Pos2, Rect, Style, Ui};
 
-use egui_snarl_fork::ui::{
+use crate::ui::nodes_engine::{InPin, InPinId, NodeId, OutPin, OutPinId, Snarl};
+use crate::ui::snarl_canvas::{
     AnyPins, BackgroundPattern, SnarlStyle, SnarlViewer, get_selected_nodes,
 };
-use egui_snarl_fork::{InPin, InPinId, NodeId, OutPin, OutPinId, Snarl};
 
 use crate::ui::state::InteractionMode;
 use crate::ui::style::NodesStyle;
@@ -116,12 +116,12 @@ impl<T, V: SnarlViewer<T>> SnarlViewer<T> for NodesShellViewer<V> {
 
     fn node_layout(
         &mut self,
-        default: egui_snarl_fork::ui::NodeLayout,
+        default: crate::ui::snarl_canvas::NodeLayout,
         node: NodeId,
         inputs: &[InPin],
         outputs: &[OutPin],
         snarl: &Snarl<T>,
-    ) -> egui_snarl_fork::ui::NodeLayout {
+    ) -> crate::ui::snarl_canvas::NodeLayout {
         self.inner
             .node_layout(default, node, inputs, outputs, snarl)
     }
@@ -146,7 +146,7 @@ impl<T, V: SnarlViewer<T>> SnarlViewer<T> for NodesShellViewer<V> {
         pin: &InPin,
         ui: &mut Ui,
         snarl: &mut Snarl<T>,
-    ) -> impl egui_snarl_fork::ui::SnarlPin + 'static {
+    ) -> impl crate::ui::snarl_canvas::SnarlPin + 'static {
         self.inner.show_input(pin, ui, snarl)
     }
 
@@ -159,7 +159,7 @@ impl<T, V: SnarlViewer<T>> SnarlViewer<T> for NodesShellViewer<V> {
         pin: &OutPin,
         ui: &mut Ui,
         snarl: &mut Snarl<T>,
-    ) -> impl egui_snarl_fork::ui::SnarlPin + 'static {
+    ) -> impl crate::ui::snarl_canvas::SnarlPin + 'static {
         self.inner.show_output(pin, ui, snarl)
     }
 

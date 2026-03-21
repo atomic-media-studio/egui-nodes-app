@@ -1,7 +1,6 @@
 [workspace]
 members = [
     "crates/core-graph",
-    "crates/egui-snarl-fork",
     "crates/egui-nodes",
     ".",
 ]

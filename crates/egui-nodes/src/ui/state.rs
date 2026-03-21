@@ -15,8 +15,9 @@ pub enum InteractionMode {
 #[derive(Clone, Copy, Debug, Default)]
 pub struct PanZoomState;
 
-/// Reserved for selection mirrors. Use `egui_snarl_fork::ui::SnarlWidget::get_selected_nodes` after
-/// [`NodesView::show`](crate::ui::view::NodesView::show), then map through [`SnarlAdapter::graph_node`](crate::snarl_adapter::SnarlAdapter).
+/// Reserved for selection mirrors. Use `egui_nodes::egui_snarl_fork::ui::SnarlWidget::get_selected_nodes` or
+/// `egui_nodes::ui::snarl_canvas::SnarlWidget::get_selected_nodes` after
+/// [`NodesView::show`](crate::ui::view::NodesView::show), then map through [`NodesEditor::graph_node`](crate::NodesEditor).
 #[derive(Clone, Copy, Debug, Default)]
 pub struct SelectionState;
 

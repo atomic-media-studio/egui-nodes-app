@@ -1,22 +1,8 @@
-//!
-//! # egui-snarl
-//!
-//! Provides a node-graph container for egui.
-//!
-//!
+//! Node-graph container for egui (merged from egui-snarl). Lives under [`crate::ui`] with the rest
+//! of the editor UI. The widget implementation is in [`canvas`], a submodule so it can access
+//! [`Snarl`] internals.
 
-#![deny(missing_docs, non_ascii_idents, unsafe_code)]
-#![deny(
-    clippy::correctness,
-    clippy::complexity,
-    clippy::perf,
-    clippy::style,
-    clippy::suspicious
-)]
-#![warn(clippy::pedantic, clippy::dbg_macro, clippy::must_use_candidate)]
-#![allow(clippy::range_plus_one, clippy::inline_always, clippy::use_self)]
-
-pub mod ui;
+pub mod canvas;
 
 use std::fmt;
 use std::ops::{Index, IndexMut};
@@ -235,7 +221,7 @@ impl<T> Snarl<T> {
     /// # Examples
     ///
     /// ```
-    /// # use egui_snarl_fork::Snarl;
+    /// # use egui_nodes::ui::nodes_engine::Snarl;
     /// let snarl = Snarl::<()>::new();
     /// ```
     #[must_use]
@@ -252,7 +238,7 @@ impl<T> Snarl<T> {
     /// # Examples
     ///
     /// ```
-    /// # use egui_snarl_fork::Snarl;
+    /// # use egui_nodes::ui::nodes_engine::Snarl;
     /// let mut snarl = Snarl::<()>::new();
     /// snarl.insert_node(egui::pos2(0.0, 0.0), ());
     /// ```
@@ -272,7 +258,7 @@ impl<T> Snarl<T> {
     /// # Examples
     ///
     /// ```
-    /// # use egui_snarl_fork::Snarl;
+    /// # use egui_nodes::ui::nodes_engine::Snarl;
     /// let mut snarl = Snarl::<()>::new();
     /// snarl.insert_node_collapsed(egui::pos2(0.0, 0.0), ());
     /// ```
@@ -322,7 +308,7 @@ impl<T> Snarl<T> {
     /// # Examples
     ///
     /// ```
-    /// # use egui_snarl_fork::Snarl;
+    /// # use egui_nodes::ui::nodes_engine::Snarl;
     /// let mut snarl = Snarl::<()>::new();
     /// let node = snarl.insert_node(egui::pos2(0.0, 0.0), ());
     /// snarl.remove_node(node);

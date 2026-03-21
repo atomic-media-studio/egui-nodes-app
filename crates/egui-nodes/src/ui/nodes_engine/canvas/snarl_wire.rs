@@ -2,7 +2,7 @@ use core::f32;
 
 use egui::{Context, Id, Pos2, Rect, Shape, Stroke, Ui, ahash::HashMap, cache::CacheTrait, pos2};
 
-use crate::{InPinId, OutPinId};
+use super::super::{InPinId, OutPinId};
 
 const MAX_CURVE_SAMPLES: usize = 100;
 

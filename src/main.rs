@@ -1,5 +1,5 @@
-//! Playground: depends only on [`egui_nodes`] (Snarl stays behind the adapter). Snarl style UI lives
-//! in [`style_panel`] so this file stays the main entry you edit first.
+//! Playground: depends only on [`egui_nodes`]. Snarl lives under `egui_nodes::ui::nodes_engine`.
+//! Snarl style UI lives in [`style_panel`] so this file stays the main entry you edit first.
 
 mod style_panel;
 
@@ -10,8 +10,8 @@ use eframe::egui;
 use egui_phosphor::regular;
 use egui_nodes::egui_snarl_fork::{InPin, OutPin, Snarl, ui::{PinInfo, SnarlViewer}};
 use egui_nodes::{
-    GraphChanges, InteractionMode, Layout2d, NodeData, NodesShellViewer, NodesStyle, NodesView,
-    NodesViewState, SnarlAdapter,
+    GraphChanges, InteractionMode, Layout2d, NodeData, NodesEditor, NodesShellViewer, NodesStyle,
+    NodesView, NodesViewState,
 };
 
 fn main() -> eframe::Result<()> {
@@ -40,14 +40,14 @@ enum DemoNode {
 }
 
 struct DemoViewer {
-    adapter: Rc<RefCell<SnarlAdapter<DemoNode, ()>>>,
+    editor: Rc<RefCell<NodesEditor<DemoNode, ()>>>,
     initial_zoom_pending: bool,
 }
 
 impl DemoViewer {
-    fn new(adapter: Rc<RefCell<SnarlAdapter<DemoNode, ()>>>) -> Self {
+    fn new(editor: Rc<RefCell<NodesEditor<DemoNode, ()>>>) -> Self {
         Self {
-            adapter,
+            editor,
             initial_zoom_pending: true,
         }
     }
@@ -122,8 +122,8 @@ impl SnarlViewer<NodeData<DemoNode>> for DemoViewer {
         _snarl: &mut Snarl<NodeData<DemoNode>>,
     ) {
         if ui.button("Add Number").clicked() {
-            let mut a = self.adapter.borrow_mut();
-            a.insert_node(
+            let mut e = self.editor.borrow_mut();
+            e.insert_node(
                 DemoNode::Number(0.0),
                 Layout2d::new(pos.x, pos.y),
                 0,
@@ -132,8 +132,8 @@ impl SnarlViewer<NodeData<DemoNode>> for DemoViewer {
             ui.close();
         }
         if ui.button("Add Sink").clicked() {
-            let mut a = self.adapter.borrow_mut();
-            a.insert_node(DemoNode::Sink, Layout2d::new(pos.x, pos.y), 1, 0);
+            let mut e = self.editor.borrow_mut();
+            e.insert_node(DemoNode::Sink, Layout2d::new(pos.x, pos.y), 1, 0);
             ui.close();
         }
     }
@@ -150,16 +150,16 @@ impl SnarlViewer<NodeData<DemoNode>> for DemoViewer {
     }
 }
 
-fn init_demo(adapter: &mut SnarlAdapter<DemoNode, ()>) {
-    let a = adapter.insert_node(DemoNode::Number(1.0), Layout2d::new(40.0, 40.0), 0, 1);
-    let b = adapter.insert_node(DemoNode::Sink, Layout2d::new(280.0, 40.0), 1, 0);
-    let out_pin = adapter.graph.node(a).unwrap().outputs[0].id;
-    let in_pin = adapter.graph.node(b).unwrap().inputs[0].id;
-    adapter.connect_pins(out_pin, in_pin, ()).expect("demo connect");
+fn init_demo(editor: &mut NodesEditor<DemoNode, ()>) {
+    let a = editor.insert_node(DemoNode::Number(1.0), Layout2d::new(40.0, 40.0), 0, 1);
+    let b = editor.insert_node(DemoNode::Sink, Layout2d::new(280.0, 40.0), 1, 0);
+    let out_pin = editor.graph.node(a).unwrap().outputs[0].id;
+    let in_pin = editor.graph.node(b).unwrap().inputs[0].id;
+    editor.connect_pins(out_pin, in_pin, ()).expect("demo connect");
 }
 
 struct TemplateApp {
-    adapter: Rc<RefCell<SnarlAdapter<DemoNode, ()>>>,
+    editor: Rc<RefCell<NodesEditor<DemoNode, ()>>>,
     nodes_style: NodesStyle,
     view_state: NodesViewState,
     viewer: NodesShellViewer<DemoViewer>,
@@ -169,16 +169,16 @@ struct TemplateApp {
 
 impl Default for TemplateApp {
     fn default() -> Self {
-        let adapter = Rc::new(RefCell::new(SnarlAdapter::new()));
-        init_demo(&mut adapter.borrow_mut());
+        let editor = Rc::new(RefCell::new(NodesEditor::new()));
+        init_demo(&mut editor.borrow_mut());
 
         let mut nodes_style = NodesStyle::new();
         nodes_style.snarl = style_panel::default_snarl_style();
 
-        let viewer = NodesShellViewer::new(DemoViewer::new(Rc::clone(&adapter)));
+        let viewer = NodesShellViewer::new(DemoViewer::new(Rc::clone(&editor)));
 
         Self {
-            adapter,
+            editor,
             nodes_style,
             view_state: NodesViewState::default(),
             viewer,
@@ -243,7 +243,7 @@ impl eframe::App for TemplateApp {
             .default_width(320.0)
             .min_width(220.0)
             .show(ctx, |ui| {
-                ui.label("Snarl style (engine: egui-snarl-fork)");
+                ui.label("Snarl style (engine: egui_nodes::ui::nodes_engine)");
                 egui::ScrollArea::vertical().show(ui, |ui| {
                     style_panel::style_controls_ui(ui, &mut self.nodes_style.snarl);
                 });
@@ -256,16 +256,16 @@ impl eframe::App for TemplateApp {
             });
 
         egui::CentralPanel::default().show(ctx, |ui| {
-            let mut adapter = self.adapter.borrow_mut();
+            let mut ed = self.editor.borrow_mut();
             let mut nodes_view = NodesView::new(
-                &mut *adapter,
+                &mut *ed,
                 &mut self.view_state,
                 &self.nodes_style,
                 &mut self.viewer,
             )
             .with_snarl_id(egui::Id::new("main-snarl-panel"));
             let _ = nodes_view.show(ui);
-            let changes = adapter.take_graph_changes();
+            let changes = ed.take_graph_changes();
             self.last_graph_changes = format_graph_changes(&changes);
         });
     }
