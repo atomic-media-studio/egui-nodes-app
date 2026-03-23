@@ -660,13 +660,31 @@ impl CanvasStyle {
         self.max_scale.unwrap_or(2.0)
     }
 
+    /// Rounding for node/header chrome and the selection outline when `select_style` is set
+    /// (playground default `6`); if `select_style` is `None`, uses uniform window theme rounding.
+    #[inline]
+    fn default_chrome_corner_rounding(&self, style: &Style) -> CornerRadius {
+        self.select_style
+            .map(|s| s.rounding)
+            .unwrap_or_else(|| uniform_window_corner_radius(style))
+    }
+
     fn get_node_frame(&self, style: &Style) -> Frame {
-        self.node_frame.unwrap_or_else(|| Frame::window(style))
+        let mut f = self
+            .node_frame
+            .unwrap_or_else(|| Frame::window(style));
+        // Always align with selection: `node_frame` is often `Some` from UI `get_or_insert(Frame::window)`, which
+        // would otherwise keep the window theme radius and ignore `select_style.rounding`.
+        f.corner_radius = self.default_chrome_corner_rounding(style);
+        f
     }
 
     fn get_header_frame(&self, style: &Style) -> Frame {
-        self.header_frame
-            .unwrap_or_else(|| self.get_node_frame(style).shadow(Shadow::NONE))
+        let mut f = self
+            .header_frame
+            .unwrap_or_else(|| self.get_node_frame(style).shadow(Shadow::NONE));
+        f.corner_radius = self.default_chrome_corner_rounding(style);
+        f
     }
 
     fn get_centering(&self) -> bool {
@@ -693,9 +711,7 @@ impl CanvasStyle {
 
     fn get_select_style(&self, style: &Style) -> SelectionStyle {
         self.select_style.unwrap_or_else(|| {
-            let mut rounding = style.visuals.window_corner_radius;
-            rounding.sw = 3;
-            rounding.se = 3;
+            let rounding = self.default_chrome_corner_rounding(style);
             SelectionStyle {
                 margin: Margin {
                     left: 3,
@@ -829,6 +845,15 @@ mod serde_frame_option {
     }
 }
 
+/// Single radius on all corners, derived from [`Style::visuals`] window rounding.
+///
+/// Used when [`CanvasStyle::select_style`] is `None` so fallback selection and node chrome still match.
+#[inline]
+fn uniform_window_corner_radius(style: &Style) -> CornerRadius {
+    let w = style.visuals.window_corner_radius;
+    CornerRadius::same(w.nw.max(w.ne).max(w.sw).max(w.se))
+}
+
 /// Default selection stroke and fill used when [`CanvasStyle::select_stoke`] / [`CanvasStyle::select_style`] are set.
 ///
 /// Matches the playground: 4px blue outline; marquee uses [`CanvasStyle::select_fill`] when unset.
@@ -839,12 +864,7 @@ fn default_selection_stroke() -> Stroke {
 
 #[inline]
 fn default_selection_rounding() -> CornerRadius {
-    CornerRadius {
-        nw: 6,
-        ne: 6,
-        sw: 3,
-        se: 3,
-    }
+    CornerRadius::same(6)
 }
 
 impl CanvasStyle {

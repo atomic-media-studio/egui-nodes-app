@@ -13,8 +13,8 @@ use egui_nodes::nodes_engine::{
     InPin, NodeGraph, OutPin,
 };
 use egui_nodes::{
-    GraphChanges, InteractionMode, Layout2d, NodeData, NodesEditor, NodesShellViewer, NodesStyle,
-    NodesView, NodesViewState,
+    GraphChanges, Layout2d, NodeData, NodesEditor, NodesShellViewer, NodesStyle, NodesView,
+    NodesViewState,
 };
 
 fn main() -> eframe::Result<()> {
@@ -204,33 +204,6 @@ impl eframe::App for TemplateApp {
                 let _ = ui.button(regular::ALARM);
                 let _ = ui.button(regular::AIRPLANE);
             });
-            ui.separator();
-            ui.label("Mode");
-            egui::ComboBox::from_id_salt("interaction-mode")
-                .selected_text(mode_label(self.view_state.mode))
-                .show_ui(ui, |ui| {
-                    for m in [
-                        InteractionMode::Select,
-                        InteractionMode::PanZoom,
-                        InteractionMode::Connect,
-                        InteractionMode::InsertNode,
-                        InteractionMode::EditNode,
-                        InteractionMode::Inspect,
-                    ] {
-                        ui.selectable_value(&mut self.view_state.mode, m, mode_label(m));
-                    }
-                });
-            if ui
-                .button(if self.view_state.is_inspect() {
-                    "Leave inspect (I)"
-                } else {
-                    "Inspect (I)"
-                })
-                .clicked()
-                || ctx.input(|i| i.key_pressed(egui::Key::I))
-            {
-                self.view_state.toggle_inspect();
-            }
         });
 
         egui::SidePanel::left("node_graph-controls")
@@ -238,16 +211,15 @@ impl eframe::App for TemplateApp {
             .default_width(320.0)
             .min_width(220.0)
             .show(ctx, |ui| {
-                ui.label("NodeGraph style (engine: egui_nodes::ui::nodes_engine)");
+                
+                
                 egui::ScrollArea::vertical().show(ui, |ui| {
                     style_panel::style_controls_ui(ui, &mut self.nodes_style.canvas);
                 });
                 ui.separator();
                 ui.label("Last graph activity:");
                 ui.monospace(&self.last_graph_changes);
-                ui.small(
-                    "Drain GraphChanges after NodesView::show to re-run Executor only when needed (topology ⇒ recompute_topo).",
-                );
+
             });
 
         egui::CentralPanel::default().show(ctx, |ui| {
@@ -263,16 +235,5 @@ impl eframe::App for TemplateApp {
             let changes = ed.take_graph_changes();
             self.last_graph_changes = format_graph_changes(&changes);
         });
-    }
-}
-
-fn mode_label(m: InteractionMode) -> &'static str {
-    match m {
-        InteractionMode::Select => "Select",
-        InteractionMode::PanZoom => "Pan / zoom",
-        InteractionMode::Connect => "Connect",
-        InteractionMode::InsertNode => "Insert node",
-        InteractionMode::EditNode => "Edit node",
-        InteractionMode::Inspect => "Inspect (read-only)",
     }
 }
