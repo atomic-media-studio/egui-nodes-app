@@ -6,9 +6,17 @@ use std::rc::Rc;
 
 use eframe::egui;
 use egui_nodes::{
-    DefaultNode, DefaultNodeViewer, GraphChanges, NodesEditor, NodesShellViewer, NodesStyle,
-    NodesView, NodesViewState, canvas_style_controls_ui, seed_default_demo_graph,
+    DefaultNode, DefaultNodeViewer, GraphChanges, NodeData, NodesEditor, NodesShellViewer,
+    NodesStyle, NodesView, NodesViewState, canvas_style_controls_ui, seed_default_demo_graph,
 };
+use egui_nodes::nodes_engine::canvas::get_selected_nodes;
+use egui_nodes::nodes_engine::{NodeGraph, NodeId};
+
+/// Must match [`NodesView::with_canvas_id`] for the main graph.
+#[inline]
+fn main_nodes_canvas_id() -> egui::Id {
+    egui::Id::new("main-nodes-canvas-panel")
+}
 
 fn main() -> eframe::Result<()> {
     let options = eframe::NativeOptions {
@@ -64,6 +72,67 @@ impl Default for TemplateApp {
     }
 }
 
+fn default_node_kind_label(user: &DefaultNode) -> &'static str {
+    match user {
+        DefaultNode::Button => "Button",
+        DefaultNode::Int(_) => "Int",
+        DefaultNode::Str(_) => "String",
+        DefaultNode::Float(_) => "Float",
+        DefaultNode::Sink => "Sink",
+    }
+}
+
+fn default_node_payload_line(user: &DefaultNode) -> String {
+    match user {
+        DefaultNode::Button => "Payload: —".to_owned(),
+        DefaultNode::Int(v) => format!("Payload: Int = {v}"),
+        DefaultNode::Str(s) if s.len() <= 32 => {
+            format!("Payload: String = \"{s}\"")
+        }
+        DefaultNode::Str(s) => format!("Payload: String ({} chars)", s.len()),
+        DefaultNode::Float(v) => format!("Payload: Float = {v:.6}"),
+        DefaultNode::Sink => "Payload: Sink (input only)".to_owned(),
+    }
+}
+
+/// Three lines for the Node Inspector (selection comes from canvas memory; may trail by one frame).
+fn node_inspector_lines(
+    selected: &[NodeId],
+    node_graph: &NodeGraph<NodeData<DefaultNode>>,
+) -> [String; 3] {
+    match selected.len() {
+        0 => [
+            "No node selected.".to_owned(),
+            "Click a node on the canvas.".to_owned(),
+            "—".to_owned(),
+        ],
+        n if n > 1 => [
+            format!("{n} nodes selected."),
+            "Inspector shows one node; select a single node.".to_owned(),
+            "—".to_owned(),
+        ],
+        _ => {
+            let id = selected[0];
+            let Some(info) = node_graph.get_node_info(id) else {
+                return [
+                    "Selection is stale.".to_owned(),
+                    "Try clicking the canvas again.".to_owned(),
+                    "—".to_owned(),
+                ];
+            };
+            let kind = default_node_kind_label(&info.value.user);
+            [
+                format!("Node #{} — {kind}", id.0),
+                format!(
+                    "Position (graph space): ({:.1}, {:.1})",
+                    info.pos.x, info.pos.y
+                ),
+                default_node_payload_line(&info.value.user),
+            ]
+        }
+    }
+}
+
 fn format_graph_changes(c: &GraphChanges) -> String {
     if !c.any() {
         return "none (idle)".to_string();
@@ -99,6 +168,16 @@ impl eframe::App for TemplateApp {
                     "Snap nodes to grid when dragging",
                 );
                 ui.separator();
+                ui.heading("Node Inspector");
+                {
+                    let selected = get_selected_nodes(main_nodes_canvas_id(), ui.ctx());
+                    let ed = self.editor.borrow();
+                    let lines = node_inspector_lines(&selected, &ed.node_graph);
+                    ui.label(&lines[0]);
+                    ui.label(&lines[1]);
+                    ui.label(&lines[2]);
+                }
+                ui.separator();
                 ui.label("Last graph activity:");
                 ui.monospace(&self.last_graph_changes);
 
@@ -124,7 +203,7 @@ impl eframe::App for TemplateApp {
                 &self.nodes_style,
                 &mut self.viewer,
             )
-            .with_canvas_id(egui::Id::new("main-nodes-canvas-panel"));
+            .with_canvas_id(main_nodes_canvas_id());
             let _ = nodes_view.show(ui);
             let changes = ed.take_graph_changes();
             self.last_graph_changes = format_graph_changes(&changes);
