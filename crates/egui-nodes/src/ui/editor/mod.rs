@@ -1,4 +1,4 @@
-//! Bridges [`graph_lib::Graph`] and [`NodeGraph`](crate::ui::nodes_engine::NodeGraph): bidirectional
+//! Bridges [`graph_lib::Graph`] and [`NodeGraph`]: bidirectional
 //! id mapping, wire sync, and [`GraphChanges`] so evaluation runs only when something changed.
 //!
 //! This layer stays in **egui-nodes** (not **graph-lib**): it maps slab canvas indices ↔ [`PinId`]
@@ -13,7 +13,7 @@ use egui::Pos2;
 
 use graph_lib::{Graph, GraphError, Layout2d, LinkId, NodeId, PinId};
 
-use crate::ui::nodes_engine::{InPinId, NodeId as ViewNodeId, OutPinId, NodeGraph};
+use crate::ui::nodes_engine::{InPinId, NodeGraph, NodeId as ViewNodeId, OutPinId};
 
 /// Converts [`Layout2d`] to egui [`Pos2`] (node position on the canvas).
 #[inline]
@@ -164,13 +164,17 @@ impl<N, E> NodesEditor<N, E> {
     }
 
     /// Add a node to the graph and a matching NodeGraph cell.
-    pub fn insert_node(&mut self, data: N, layout: Layout2d, inputs: usize, outputs: usize) -> NodeId
+    pub fn insert_node(
+        &mut self,
+        data: N,
+        layout: Layout2d,
+        inputs: usize,
+        outputs: usize,
+    ) -> NodeId
     where
         N: Clone,
     {
-        let id = self
-            .graph
-            .add_node(data.clone(), layout, inputs, outputs);
+        let id = self.graph.add_node(data.clone(), layout, inputs, outputs);
         let pos = layout_to_pos2(layout);
         let collapsed = self.graph.node(id).unwrap().collapsed;
         let payload = NodeData {
@@ -190,8 +194,16 @@ impl<N, E> NodesEditor<N, E> {
     }
 
     /// Connect output pin → input pin in both stores.
-    pub fn connect_pins(&mut self, from: PinId, to: PinId, data: E) -> Result<LinkId, NodesEditorError> {
-        let lid = self.graph.connect(from, to, data).map_err(NodesEditorError::from)?;
+    pub fn connect_pins(
+        &mut self,
+        from: PinId,
+        to: PinId,
+        data: E,
+    ) -> Result<LinkId, NodesEditorError> {
+        let lid = self
+            .graph
+            .connect(from, to, data)
+            .map_err(NodesEditorError::from)?;
         let (a, oi) = self.map_view_pin_out(from)?;
         let (b, ii) = self.map_view_pin_in(to)?;
         let ok = self.node_graph.connect(
@@ -199,10 +211,7 @@ impl<N, E> NodesEditor<N, E> {
                 node: a,
                 output: oi,
             },
-            InPinId {
-                node: b,
-                input: ii,
-            },
+            InPinId { node: b, input: ii },
         );
         if !ok {
             let _ = self.graph.disconnect_link(lid);
@@ -218,7 +227,10 @@ impl<N, E> NodesEditor<N, E> {
         N: Clone,
     {
         for (&nid, &snid) in &self.core_to_view {
-            if let (Some(gn), Some(n)) = (self.graph.node(nid), self.node_graph.get_node_info_mut(snid)) {
+            if let (Some(gn), Some(n)) = (
+                self.graph.node(nid),
+                self.node_graph.get_node_info_mut(snid),
+            ) {
                 n.value.user = gn.data.clone();
                 n.open = !gn.collapsed;
             }
@@ -233,7 +245,9 @@ impl<N, E> NodesEditor<N, E> {
         let keys_before = self.graph.link_key_set();
         let mut payload_changed = false;
         for (&nid, &snid) in &self.core_to_view {
-            if let (Some(gn), Some(info)) = (self.graph.node(nid), self.node_graph.get_node_info(snid)) {
+            if let (Some(gn), Some(info)) =
+                (self.graph.node(nid), self.node_graph.get_node_info(snid))
+            {
                 let new_layout = pos2_to_layout(info.pos);
                 let new_collapsed = !info.open;
                 let new_data = info.value.user.clone();
@@ -243,7 +257,10 @@ impl<N, E> NodesEditor<N, E> {
             }
         }
         for (&nid, &snid) in &self.core_to_view {
-            if let (Some(gn), Some(info)) = (self.graph.node_mut(nid), self.node_graph.get_node_info(snid)) {
+            if let (Some(gn), Some(info)) = (
+                self.graph.node_mut(nid),
+                self.node_graph.get_node_info(snid),
+            ) {
                 gn.layout = pos2_to_layout(info.pos);
                 gn.collapsed = !info.open;
                 gn.data = info.value.user.clone();
@@ -294,10 +311,7 @@ impl<N, E> NodesEditor<N, E> {
         }
     }
 
-    fn graph_pin_from_view_out(
-        &self,
-        p: OutPinId,
-    ) -> Result<PinId, ()> {
+    fn graph_pin_from_view_out(&self, p: OutPinId) -> Result<PinId, ()> {
         let nid = self.view_to_core.get(&p.node).copied().ok_or(())?;
         let node = self.graph.node(nid).ok_or(())?;
         node.outputs.get(p.output).map(|pin| pin.id).ok_or(())

@@ -66,12 +66,9 @@ where
 
         for node_id in &self.topo_order {
             let input_values = gather_inputs_for_node(&self.graph, *node_id, &values_at_pins);
-            let outputs = self.evaluator.eval_node(
-                &self.graph,
-                *node_id,
-                ctx,
-                &input_values,
-            );
+            let outputs = self
+                .evaluator
+                .eval_node(&self.graph, *node_id, ctx, &input_values);
             for (pin_id, value) in &outputs {
                 values_at_pins.insert(*pin_id, value.clone());
             }
@@ -167,10 +164,10 @@ pub fn gather_inputs_for_node<N, E>(
     };
     let mut result = Vec::new();
     for pin in &node.inputs {
-        if let Some(&src) = graph.incoming.get(&pin.id) {
-            if let Some(v) = values_at_pins.get(&src) {
-                result.push((pin.id, v.clone()));
-            }
+        if let Some(&src) = graph.incoming.get(&pin.id)
+            && let Some(v) = values_at_pins.get(&src)
+        {
+            result.push((pin.id, v.clone()));
         }
     }
     result

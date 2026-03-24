@@ -128,13 +128,7 @@ impl<N, E> Graph<N, E> {
     }
 
     /// Add a node with `inputs` / `outputs` pins; labels default to `in0…` / `out0…`.
-    pub fn add_node(
-        &mut self,
-        data: N,
-        layout: Layout2d,
-        inputs: usize,
-        outputs: usize,
-    ) -> NodeId {
+    pub fn add_node(&mut self, data: N, layout: Layout2d, inputs: usize, outputs: usize) -> NodeId {
         let Some(id) = self.alloc_node_id() else {
             panic!("exhausted NodeId space");
         };
@@ -182,7 +176,10 @@ impl<N, E> Graph<N, E> {
     }
 
     pub fn node_mut(&mut self, id: NodeId) -> Option<&mut Node<N>> {
-        self.node_index.get(&id).copied().map(|i| &mut self.nodes[i])
+        self.node_index
+            .get(&id)
+            .copied()
+            .map(|i| &mut self.nodes[i])
     }
 
     pub fn nodes_iter(&self) -> impl Iterator<Item = &Node<N>> {
@@ -288,9 +285,8 @@ impl<N, E> Graph<N, E> {
 impl<N, E> Graph<N, E> {
     /// Remove links whose endpoint pins are missing (internal consistency).
     pub fn prune_stale_links(&mut self) {
-        self.links.retain(|l| {
-            self.pin_index.contains_key(&l.from) && self.pin_index.contains_key(&l.to)
-        });
+        self.links
+            .retain(|l| self.pin_index.contains_key(&l.from) && self.pin_index.contains_key(&l.to));
         self.sync_incoming_with_links();
     }
 

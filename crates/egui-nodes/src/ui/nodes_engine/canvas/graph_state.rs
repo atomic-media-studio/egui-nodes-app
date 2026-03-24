@@ -1,16 +1,16 @@
 //! Pan/zoom, selection, and wire-drag state used by the nodes canvas.
 
 use egui::{
-    Context, Id, Pos2, Rect, Ui, Vec2,
+    Context, Id, Pos2, Rect, Vec2,
     ahash::HashSet,
     emath::{GuiRounding, TSTransform},
     style::Spacing,
 };
 use smallvec::{SmallVec, ToSmallVec, smallvec};
 
-use super::super::{InPinId, NodeId, OutPinId, NodeGraph};
+use super::super::{InPinId, NodeGraph, NodeId, OutPinId};
 
-use super::{NodesCanvas, transform_matching_points};
+use super::transform::transform_matching_points;
 
 pub type RowHeights = SmallVec<[f32; 8]>;
 
@@ -241,7 +241,10 @@ impl CanvasStateData {
     }
 }
 
-fn prune_selected_nodes<T>(selected_nodes: &mut SmallVec<[NodeId; 8]>, node_graph: &NodeGraph<T>) -> bool {
+fn prune_selected_nodes<T>(
+    selected_nodes: &mut SmallVec<[NodeId; 8]>,
+    node_graph: &NodeGraph<T>,
+) -> bool {
     let old_size = selected_nodes.len();
     selected_nodes.retain(|node| node_graph.nodes.contains(node.0));
     old_size != selected_nodes.len()
@@ -278,7 +281,13 @@ impl CanvasState {
         }
     }
 
-    fn initial<T>(id: Id, node_graph: &NodeGraph<T>, ui_rect: Rect, min_scale: f32, max_scale: f32) -> Self {
+    fn initial<T>(
+        id: Id,
+        node_graph: &NodeGraph<T>,
+        ui_rect: Rect,
+        min_scale: f32,
+        max_scale: f32,
+    ) -> Self {
         let mut bb = Rect::NOTHING;
 
         for (_, node) in &node_graph.nodes {
@@ -566,24 +575,6 @@ impl CanvasState {
         }
     }
 
-    #[allow(dead_code)]
-    pub fn deselect_one_node(&mut self, node: NodeId) {
-        if let Some(pos) = self.selected_nodes.iter().position(|n| *n == node) {
-            self.selected_nodes.remove(pos);
-            self.dirty = true;
-        }
-    }
-
-    #[allow(dead_code)]
-    pub fn deselect_many_nodes(&mut self, nodes: impl Iterator<Item = NodeId>) {
-        for node in nodes {
-            if let Some(pos) = self.selected_nodes.iter().position(|n| *n == node) {
-                self.selected_nodes.remove(pos);
-                self.dirty = true;
-            }
-        }
-    }
-
     pub fn deselect_all_nodes(&mut self) {
         self.dirty |= !self.selected_nodes.is_empty();
         self.selected_nodes.clear();
@@ -619,36 +610,20 @@ impl CanvasState {
     }
 }
 
-impl NodesCanvas {
-    /// Returns list of nodes selected in the UI for the `NodesCanvas` with same id.
-    ///
-    /// Use same `Ui` instance that was used in [`NodesCanvas::show`].
-    #[must_use]
-    #[inline]
-    pub fn get_selected_nodes(self, ui: &Ui) -> Vec<NodeId> {
-        self.get_selected_nodes_at(ui.id(), ui.ctx())
-    }
-
-    /// Returns list of nodes selected in the UI for the `NodesCanvas` with same id.
-    ///
-    /// `ui_id` must be the Id of the `Ui` instance that was used in [`NodesCanvas::show`].
-    #[must_use]
-    #[inline]
-    pub fn get_selected_nodes_at(self, ui_id: Id, ctx: &Context) -> Vec<NodeId> {
-        let canvas_id = self.get_id(ui_id);
-
-        ctx.data(|d| d.get_temp::<SelectedNodes>(canvas_id).unwrap_or_default().0)
-            .into_vec()
-    }
-}
-
-/// Returns nodes selected in the UI for the `NodesCanvas` with same ID.
+/// Returns nodes selected in the UI for the [`crate::ui::nodes_canvas::NodesCanvas`] with same ID.
 ///
-/// Only works if [`NodesCanvas::id`] was used.
-/// For other cases construct [`NodesCanvas`] and use [`NodesCanvas::get_selected_nodes`] or [`NodesCanvas::get_selected_nodes_at`].
+/// Only works if [`crate::ui::nodes_canvas::NodesCanvas::id`] was used.
+/// For other cases construct [`crate::ui::nodes_canvas::NodesCanvas`] and use
+/// [`crate::ui::nodes_canvas::NodesCanvas::get_selected_nodes`] or
+/// [`crate::ui::nodes_canvas::NodesCanvas::get_selected_nodes_at`].
 #[must_use]
 #[inline]
 pub fn get_selected_nodes(id: Id, ctx: &Context) -> Vec<NodeId> {
-    ctx.data(|d| d.get_temp::<SelectedNodes>(id).unwrap_or_default().0)
+    selected_nodes_for_canvas_id(id, ctx)
+}
+
+#[inline]
+pub(crate) fn selected_nodes_for_canvas_id(canvas_id: Id, ctx: &Context) -> Vec<NodeId> {
+    ctx.data(|d| d.get_temp::<SelectedNodes>(canvas_id).unwrap_or_default().0)
         .into_vec()
 }

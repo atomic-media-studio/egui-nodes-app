@@ -2,7 +2,7 @@ use std::sync::Arc;
 
 use egui::{Color32, Stroke, Style};
 
-use crate::ui::nodes_canvas::{BackgroundPattern, Grid, CanvasStyle};
+use crate::ui::nodes_canvas::{BackgroundPattern, CanvasStyle, Grid};
 
 /// Hooks for strokes similar in spirit to egui_graphs-style customization.
 pub trait NodeStyleHook: Send + Sync {
@@ -16,7 +16,8 @@ pub trait NodeStyleHook: Send + Sync {
     ) -> Stroke;
 }
 
-/// Default: when selected, use a **transparent** stroke with the same width as [`default`], so
+/// Default: when selected, use a **transparent** stroke with the same width as the `default`
+/// `Stroke` argument, so
 /// [`egui::Frame::total_margin`] (and thus pin positions) do not change; only the canvas selection
 /// outline is visible. [`Stroke::NONE`] would drop stroke width to zero and shift layout.
 pub struct DefaultNodeStyleHook;
@@ -40,25 +41,13 @@ impl NodeStyleHook for DefaultNodeStyleHook {
 }
 
 pub trait EdgeStyleHook: Send + Sync {
-    fn stroke(
-        &self,
-        selected: bool,
-        order: usize,
-        default: Stroke,
-        egui_style: &Style,
-    ) -> Stroke;
+    fn stroke(&self, selected: bool, order: usize, default: Stroke, egui_style: &Style) -> Stroke;
 }
 
 pub struct DefaultEdgeStyleHook;
 
 impl EdgeStyleHook for DefaultEdgeStyleHook {
-    fn stroke(
-        &self,
-        selected: bool,
-        order: usize,
-        default: Stroke,
-        egui_style: &Style,
-    ) -> Stroke {
+    fn stroke(&self, selected: bool, order: usize, default: Stroke, egui_style: &Style) -> Stroke {
         let _ = order;
         if selected {
             Stroke::new(default.width, egui_style.visuals.selection.stroke.color)
@@ -149,7 +138,8 @@ impl NodesStyle {
                 grid.angle = g.angle;
             }
             None => {
-                self.canvas.bg_pattern = Some(BackgroundPattern::Grid(Grid::new(g.spacing, g.angle)));
+                self.canvas.bg_pattern =
+                    Some(BackgroundPattern::Grid(Grid::new(g.spacing, g.angle)));
             }
             Some(BackgroundPattern::NoPattern) => {}
         }

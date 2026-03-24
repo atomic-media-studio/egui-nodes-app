@@ -1,7 +1,7 @@
 //! **egui-nodes** — egui node editor on top of [`graph_lib`].
 //!
 //! ## Layers
-//! - **`graph-lib`** (re-exported) — headless [`Graph`], [`Link`], ids, optional [`Executor`](graph_lib::Executor) and
+//! - **`graph-lib`** (re-exported) — headless [`Graph`], [`Link`], ids, optional [`Executor`] and
 //!   evaluation. No egui.
 //! - **This crate** — [`NodesEditor`] / [`NodesView`], [`NodeGraph`](crate::ui::nodes_engine::NodeGraph),
 //!   canvas ([`crate::ui::nodes_engine::canvas`]), and styling. [`NodeData`] maps slab nodes to
@@ -19,9 +19,9 @@ pub use graph_lib::{
 pub use io::{load_graph, save_graph};
 pub use ui::{
     BackgroundStyle, DefaultEdgeStyleHook, DefaultNodeStyleHook, EdgeStyleHook, GraphChanges,
-    GridSettings, NodeData, NodeStyleHook, NodesEditor, NodesEditorError,
-    NodesShellViewer, NodesStyle, NodesView, NodesViewState, PanZoomState, SelectionState,
-    canvas_style_controls_ui, layout_to_pos2, pos2_to_layout,
+    GridSettings, NodeData, NodeStyleHook, NodesEditor, NodesEditorError, NodesShellViewer,
+    NodesStyle, NodesView, NodesViewState, PanZoomState, SelectionState, canvas_style_controls_ui,
+    layout_to_pos2, pos2_to_layout,
 };
 
 /// Re-export the graph crate for `use egui_nodes::graph_lib::…` or version pinning.

@@ -1,10 +1,10 @@
-use egui::{emath::TSTransform, Painter, Pos2, Rect, Style, Ui};
+use egui::{Painter, Pos2, Rect, Style, Ui, emath::TSTransform};
 
-use super::super::{InPin, InPinId, NodeId, OutPin, OutPinId, NodeGraph};
+use super::super::{InPin, InPinId, NodeGraph, NodeId, OutPin, OutPinId};
 
 use super::{
+    BackgroundPattern, CanvasStyle, NodeLayout,
     pin::{AnyPins, PinInfo},
-    BackgroundPattern, NodeLayout, CanvasStyle,
 };
 
 /// Renders and handles interaction for a [`NodeGraph`](crate::ui::nodes_engine::NodeGraph).
@@ -37,7 +37,7 @@ pub trait NodeGraphViewer<T> {
     /// Returns the node's header frame.
     ///
     /// This frame would be placed on top of the node's frame.
-    /// And header UI (see [`show_header`]) will be placed inside this frame.
+    /// And header UI (see [`NodeGraphViewer::show_header`]) will be placed inside this frame.
     ///
     /// Returns `default` by default.
     /// `default` frame is taken from the [`CanvasStyle::header_frame`],
@@ -124,12 +124,7 @@ pub trait NodeGraphViewer<T> {
     fn inputs(&mut self, node: &T) -> usize;
 
     /// Renders one specified node's input element and returns drawer for the corresponding pin.
-    fn show_input(
-        &mut self,
-        pin: &InPin,
-        ui: &mut Ui,
-        node_graph: &mut NodeGraph<T>,
-    ) -> PinInfo;
+    fn show_input(&mut self, pin: &InPin, ui: &mut Ui, node_graph: &mut NodeGraph<T>) -> PinInfo;
 
     /// Returns number of output pins of the node.
     ///
@@ -137,12 +132,7 @@ pub trait NodeGraphViewer<T> {
     fn outputs(&mut self, node: &T) -> usize;
 
     /// Renders the node's output.
-    fn show_output(
-        &mut self,
-        pin: &OutPin,
-        ui: &mut Ui,
-        node_graph: &mut NodeGraph<T>,
-    ) -> PinInfo;
+    fn show_output(&mut self, pin: &OutPin, ui: &mut Ui, node_graph: &mut NodeGraph<T>) -> PinInfo;
 
     /// Checks if node has something to show in body - between input and output pins.
     #[inline]
@@ -189,7 +179,13 @@ pub trait NodeGraphViewer<T> {
     /// It aimed to be used for custom positioning of nodes that requires node dimensions for calculations.
     /// Node's position can be modified directly in this method.
     #[inline]
-    fn final_node_rect(&mut self, node: NodeId, rect: Rect, ui: &mut Ui, node_graph: &mut NodeGraph<T>) {
+    fn final_node_rect(
+        &mut self,
+        node: NodeId,
+        rect: Rect,
+        ui: &mut Ui,
+        node_graph: &mut NodeGraph<T>,
+    ) {
         let _ = (node, rect, ui, node_graph);
     }
 
@@ -216,7 +212,12 @@ pub trait NodeGraphViewer<T> {
     /// Checks if wire has something to show in widget.
     /// This may not be called if wire is invisible.
     #[inline]
-    fn has_wire_widget(&mut self, from: &OutPinId, to: &InPinId, node_graph: &NodeGraph<T>) -> bool {
+    fn has_wire_widget(
+        &mut self,
+        from: &OutPinId,
+        to: &InPinId,
+        node_graph: &NodeGraph<T>,
+    ) -> bool {
         let _ = (from, to, node_graph);
         false
     }
@@ -224,7 +225,13 @@ pub trait NodeGraphViewer<T> {
     /// Renders the wire's widget.
     /// This may not be called if wire is invisible.
     #[inline]
-    fn show_wire_widget(&mut self, from: &OutPin, to: &InPin, ui: &mut Ui, node_graph: &mut NodeGraph<T>) {
+    fn show_wire_widget(
+        &mut self,
+        from: &OutPin,
+        to: &InPin,
+        ui: &mut Ui,
+        node_graph: &mut NodeGraph<T>,
+    ) {
         let _ = (from, to, ui, node_graph);
     }
 

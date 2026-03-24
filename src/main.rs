@@ -5,14 +5,13 @@ use std::cell::RefCell;
 use std::rc::Rc;
 
 use eframe::egui;
-use egui_phosphor::regular;
 use egui_nodes::nodes_engine::{
-    canvas::{NodeGraphViewer, PinInfo},
     InPin, NodeGraph, OutPin,
+    canvas::{NodeGraphViewer, PinInfo},
 };
 use egui_nodes::{
-    canvas_style_controls_ui, GraphChanges, Layout2d, NodeData, NodesEditor, NodesShellViewer,
-    NodesStyle, NodesView, NodesViewState,
+    GraphChanges, Layout2d, NodeData, NodesEditor, NodesShellViewer, NodesStyle, NodesView,
+    NodesViewState, canvas_style_controls_ui,
 };
 
 fn main() -> eframe::Result<()> {
@@ -108,7 +107,11 @@ impl NodeGraphViewer<NodeData<DemoNode>> for DemoViewer {
         PinInfo::circle()
     }
 
-    fn has_graph_menu(&mut self, _pos: egui::Pos2, _node_graph: &mut NodeGraph<NodeData<DemoNode>>) -> bool {
+    fn has_graph_menu(
+        &mut self,
+        _pos: egui::Pos2,
+        _node_graph: &mut NodeGraph<NodeData<DemoNode>>,
+    ) -> bool {
         true
     }
 
@@ -120,12 +123,7 @@ impl NodeGraphViewer<NodeData<DemoNode>> for DemoViewer {
     ) {
         if ui.button("Add Number").clicked() {
             let mut e = self.editor.borrow_mut();
-            e.insert_node(
-                DemoNode::Number(0.0),
-                Layout2d::new(pos.x, pos.y),
-                0,
-                1,
-            );
+            e.insert_node(DemoNode::Number(0.0), Layout2d::new(pos.x, pos.y), 0, 1);
             ui.close();
         }
         if ui.button("Add Sink").clicked() {
@@ -148,7 +146,9 @@ fn init_demo(editor: &mut NodesEditor<DemoNode, ()>) {
     let b = editor.insert_node(DemoNode::Sink, Layout2d::new(280.0, 40.0), 1, 0);
     let out_pin = editor.graph.node(a).unwrap().outputs[0].id;
     let in_pin = editor.graph.node(b).unwrap().inputs[0].id;
-    editor.connect_pins(out_pin, in_pin, ()).expect("demo connect");
+    editor
+        .connect_pins(out_pin, in_pin, ())
+        .expect("demo connect");
 }
 
 struct TemplateApp {
@@ -197,10 +197,6 @@ impl eframe::App for TemplateApp {
     fn update(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
         egui::TopBottomPanel::top("top-bar").show(ctx, |ui| {
             ui.heading("graph-lib and egui-nodes playground");
-            ui.horizontal(|ui| {
-                let _ = ui.button(regular::ALARM);
-                let _ = ui.button(regular::AIRPLANE);
-            });
             ui.add_space(10.0);
         });
 
@@ -209,8 +205,6 @@ impl eframe::App for TemplateApp {
             .default_width(320.0)
             .min_width(220.0)
             .show(ctx, |ui| {
-                
-                
                 egui::ScrollArea::vertical().show(ui, |ui| {
                     canvas_style_controls_ui(ui, &mut self.nodes_style.canvas);
                 });

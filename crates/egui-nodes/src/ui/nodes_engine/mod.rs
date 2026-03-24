@@ -1,6 +1,7 @@
 //! Interactive node graph for egui: [`NodeGraph`] stores nodes, wires, and positions; [`canvas`]
 //! implements [`NodesCanvas`](crate::ui::nodes_engine::canvas::NodesCanvas) / rendering and input.
-//! The canvas module is a submodule so it can use `NodeGraph` internals while keeping the public API narrow.
+//! The canvas splits into `style`, `scene`, `draw`, and `transform` so layout, interaction, and drawing stay
+//! maintainable while `NodeGraph` internals stay available within this module.
 
 pub mod canvas;
 

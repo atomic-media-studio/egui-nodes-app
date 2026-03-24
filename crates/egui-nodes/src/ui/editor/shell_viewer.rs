@@ -5,10 +5,10 @@ use std::sync::Arc;
 use egui::emath::TSTransform;
 use egui::{Context, Frame, Id, Painter, Pos2, Rect, Style, Ui};
 
-use crate::ui::nodes_engine::{InPin, InPinId, NodeId, OutPin, OutPinId, NodeGraph};
 use crate::ui::nodes_canvas::{
     AnyPins, BackgroundPattern, CanvasStyle, NodeGraphViewer, get_selected_nodes,
 };
+use crate::ui::nodes_engine::{InPin, InPinId, NodeGraph, NodeId, OutPin, OutPinId};
 
 use crate::ui::style::NodesStyle;
 
@@ -30,12 +30,7 @@ impl<V> NodesShellViewer<V> {
         }
     }
 
-    pub(crate) fn prepare(
-        &mut self,
-        canvas_id: Id,
-        ctx: &Context,
-        style: &NodesStyle,
-    ) {
+    pub(crate) fn prepare(&mut self, canvas_id: Id, ctx: &Context, style: &NodesStyle) {
         self.canvas_id = canvas_id;
         self.ctx = Some(ctx.clone());
         self.style = Arc::new(style.clone());
@@ -63,13 +58,10 @@ impl<T, V: NodeGraphViewer<T>> NodeGraphViewer<T> for NodesShellViewer<V> {
         };
         let selected = get_selected_nodes(self.canvas_id, ctx).contains(&node);
         let egui_style = ctx.style();
-        frame.stroke = self.style.node_style.stroke(
-            selected,
-            false,
-            None,
-            frame.stroke,
-            egui_style.as_ref(),
-        );
+        frame.stroke =
+            self.style
+                .node_style
+                .stroke(selected, false, None, frame.stroke, egui_style.as_ref());
         frame
     }
 
@@ -127,7 +119,8 @@ impl<T, V: NodeGraphViewer<T>> NodeGraphViewer<T> for NodesShellViewer<V> {
         ui: &mut Ui,
         node_graph: &mut NodeGraph<T>,
     ) {
-        self.inner.show_header(node, inputs, outputs, ui, node_graph)
+        self.inner
+            .show_header(node, inputs, outputs, ui, node_graph)
     }
 
     fn inputs(&mut self, node: &T) -> usize {
@@ -183,7 +176,8 @@ impl<T, V: NodeGraphViewer<T>> NodeGraphViewer<T> for NodesShellViewer<V> {
         ui: &mut Ui,
         node_graph: &mut NodeGraph<T>,
     ) {
-        self.inner.show_footer(node, inputs, outputs, ui, node_graph)
+        self.inner
+            .show_footer(node, inputs, outputs, ui, node_graph)
     }
 
     fn final_node_rect(
@@ -212,7 +206,12 @@ impl<T, V: NodeGraphViewer<T>> NodeGraphViewer<T> for NodesShellViewer<V> {
             .show_on_hover_popup(node, inputs, outputs, ui, node_graph)
     }
 
-    fn has_wire_widget(&mut self, from: &OutPinId, to: &InPinId, node_graph: &NodeGraph<T>) -> bool {
+    fn has_wire_widget(
+        &mut self,
+        from: &OutPinId,
+        to: &InPinId,
+        node_graph: &NodeGraph<T>,
+    ) -> bool {
         self.inner.has_wire_widget(from, to, node_graph)
     }
 
@@ -245,7 +244,8 @@ impl<T, V: NodeGraphViewer<T>> NodeGraphViewer<T> for NodesShellViewer<V> {
         src_pins: AnyPins,
         node_graph: &mut NodeGraph<T>,
     ) {
-        self.inner.show_dropped_wire_menu(pos, ui, src_pins, node_graph)
+        self.inner
+            .show_dropped_wire_menu(pos, ui, src_pins, node_graph)
     }
 
     fn has_node_menu(&mut self, node: &T) -> bool {
@@ -289,13 +289,17 @@ impl<T, V: NodeGraphViewer<T>> NodeGraphViewer<T> for NodesShellViewer<V> {
         painter: &Painter,
         node_graph: &NodeGraph<T>,
     ) {
-        self.inner
-            .draw_background(background, viewport, canvas_style, style, painter, node_graph)
+        self.inner.draw_background(
+            background,
+            viewport,
+            canvas_style,
+            style,
+            painter,
+            node_graph,
+        )
     }
 
     fn current_transform(&mut self, to_global: &mut TSTransform, node_graph: &mut NodeGraph<T>) {
         self.inner.current_transform(to_global, node_graph)
     }
 }
-
-

@@ -188,7 +188,8 @@ impl PinInfo {
     /// Returns fill color of the pin.
     #[must_use]
     pub fn get_fill(&self, canvas_style: &CanvasStyle, style: &Style) -> Color32 {
-        self.fill.unwrap_or_else(|| canvas_style.get_pin_fill(style))
+        self.fill
+            .unwrap_or_else(|| canvas_style.get_pin_fill(style))
     }
 
     /// Returns outline stroke of the pin.

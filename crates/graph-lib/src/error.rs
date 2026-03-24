@@ -8,7 +8,10 @@ pub enum GraphError {
     UnknownNode(NodeId),
     UnknownPin(PinId),
     UnknownLink(LinkId),
-    PinKindMismatch { pin: PinId, expected_input: bool },
+    PinKindMismatch {
+        pin: PinId,
+        expected_input: bool,
+    },
     NotOutputPin(PinId),
     NotInputPin(PinId),
     DuplicateLink {
@@ -16,7 +19,9 @@ pub enum GraphError {
         to: PinId,
     },
     /// An input pin already has an incoming link; disconnect it first.
-    InputPinOccupied { to: PinId },
+    InputPinOccupied {
+        to: PinId,
+    },
     SelfLoop,
 }
 

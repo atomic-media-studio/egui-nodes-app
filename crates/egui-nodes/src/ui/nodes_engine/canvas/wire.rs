@@ -818,32 +818,11 @@ fn draw_bezier_5(
             shapes.push(Shape::line(cached.line(threshold), stroke));
         }
     });
-
-    // {
-    //     let samples = bezier_draw_samples_number_5(points, threshold);
-    //     shapes.push(Shape::line(
-    //         points.to_vec(),
-    //         Stroke::new(1.0, Color32::PLACEHOLDER),
-    //     ));
-
-    //     let samples = 100;
-    //     shapes.push(Shape::line(
-    //         (0..samples)
-    //             .map(|i| {
-    //                 #[allow(clippy::cast_precision_loss)]
-    //                 let t = i as f32 / (samples - 1) as f32;
-    //                 sample_bezier(points, t)
-    //             })
-    //             .collect(),
-    //         Stroke::new(1.0, Color32::PLACEHOLDER),
-    //     ));
-    // }
 }
 
-// #[allow(clippy::let_and_return)]
 fn sample_bezier(points: &[Pos2], t: f32) -> Pos2 {
     match *points {
-        [] => unimplemented!(),
+        [] => Pos2::ZERO,
         [p0] => p0,
         [p0, p1] => p0.lerp(p1, t),
         [p0, p1, p2] => {
@@ -898,7 +877,14 @@ fn sample_bezier(points: &[Pos2], t: f32) -> Pos2 {
 
             sample_bezier(&[p0_1, p1_1, p2_1, p3_1, p4_1], t)
         }
-        _ => unimplemented!(),
+        _ => {
+            // Generic degree: one de Casteljau step, then recurse (paths are short in practice).
+            let mut next = Vec::with_capacity(points.len().saturating_sub(1));
+            for w in points.windows(2) {
+                next.push(w[0].lerp(w[1], t));
+            }
+            sample_bezier(&next, t)
+        }
     }
 }
 

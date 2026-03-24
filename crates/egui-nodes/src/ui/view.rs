@@ -49,7 +49,8 @@ impl<'a, N, E, V> NodesView<'a, N, E, V> {
         V: NodeGraphViewer<NodeData<N>>,
     {
         self.editor.sync_node_graph_payloads_from_graph();
-        self.viewer.prepare(self.canvas_widget_id, ui.ctx(), self.style);
+        self.viewer
+            .prepare(self.canvas_widget_id, ui.ctx(), self.style);
         let canvas_style = self.style.to_canvas_style();
         let r = NodesCanvas::new()
             .id(self.canvas_widget_id)
@@ -59,5 +60,3 @@ impl<'a, N, E, V> NodesView<'a, N, E, V> {
         r
     }
 }
-
-

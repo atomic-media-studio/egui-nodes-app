@@ -1,13 +1,4 @@
-use egui::{
-    emath::Rot2,
-    vec2,
-    Color32,
-    Painter,
-    Rect,
-    Stroke,
-    Style,
-    Vec2,
-};
+use egui::{Color32, Painter, Rect, Stroke, Style, Vec2, emath::Rot2, vec2};
 
 use super::CanvasStyle;
 
@@ -46,7 +37,7 @@ pub struct Grid {
     /// Radius for [`GridRenderMode::Dots`] (logical pixels; scales with zoom).
     pub dot_radius: f32,
 
-    /// Optional color override. If `None`, uses [`CanvasStyle::get_bg_pattern_stroke`] color.
+    /// Optional color override. If `None`, uses the resolved background-pattern stroke from the active canvas style.
     pub color: Option<Color32>,
 }
 
@@ -153,6 +144,7 @@ impl Grid {
         }
     }
 
+    #[allow(clippy::too_many_arguments)]
     fn draw_lines(
         pattern_bounds: Rect,
         spacing: Vec2,
@@ -188,6 +180,7 @@ impl Grid {
         }
     }
 
+    #[allow(clippy::too_many_arguments)]
     fn draw_dots(
         spacing: Vec2,
         rot: Rot2,

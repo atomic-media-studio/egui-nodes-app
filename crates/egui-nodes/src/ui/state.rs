@@ -1,7 +1,7 @@
 //! UI-only state carried alongside [`crate::ui::view::NodesView`] (separate from graph data).
 
 /// Placeholder for lifting pan/zoom into app state. The viewport transform lives in per-canvas
-/// [`crate::ui::nodes_engine::canvas::CanvasState`] (persisted by egui).
+/// `CanvasState` (see `egui_nodes::ui::nodes_engine::canvas::graph_state`) and is persisted by egui.
 #[derive(Clone, Copy, Debug, Default)]
 pub struct PanZoomState;
 

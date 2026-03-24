@@ -48,12 +48,3 @@ cargo build --release
 
 Applications typically depend on **`egui-nodes`** (and use **`graph_lib`** through it or as a direct dep). Tools with no UI can depend on **`graph-lib`** alone.
 
-## Architecture
-
-**[`graph-lib`](crates/graph-lib)** - Directed dataflow: each [`Link`](crates/graph-lib/src/model.rs) is output-pin → input-pin. The graph is a **DAG** iff [`dependency_graph_is_acyclic`](crates/graph-lib/src/eval.rs) holds. The UI may hold temporary cycles; [`compute_topological_order`](crates/graph-lib/src/eval.rs) still yields an order for [`Executor`](crates/graph-lib/src/eval.rs). [`NodeId`](crates/graph-lib/src/ids.rs) / [`PinId`](crates/graph-lib/src/ids.rs) / [`LinkId`](crates/graph-lib/src/ids.rs) are opaque numeric ids (see crate docs).
-
-**[`egui-nodes`](crates/egui-nodes)** — [`NodesEditor`](crates/egui-nodes/src/ui/editor/mod.rs) owns canonical [`Graph`](crates/graph-lib/src/model.rs) plus a slab [`NodeGraph`](crates/egui-nodes/src/ui/nodes_engine/mod.rs) for egui; [`NodeData`](crates/egui-nodes/src/ui/editor/mod.rs) maps nodes to payloads. Canvas (pan/zoom, wires, selection, [`NodeGraphViewer`](crates/egui-nodes/src/ui/nodes_engine/canvas/node_viewer.rs)) lives under **`egui_nodes::nodes_engine`**. [`layout_to_pos2`](crates/egui-nodes/src/ui/editor/mod.rs) / [`pos2_to_layout`](crates/egui-nodes/src/ui/editor/mod.rs) connect [`Layout2d`](crates/graph-lib/src/layout.rs) to egui space. After [`NodesView::show`](crates/egui-nodes/src/ui/view.rs), read edits via [`take_graph_changes`](crates/egui-nodes/src/ui/editor/mod.rs) on the editor.
-
-**Root package** — Demo shell; it is not a library.
-
-**Tests:** e.g. `graph_json_roundtrip` in [`model.rs`](crates/graph-lib/src/model.rs) — `cargo test -p graph-lib --features serde`.

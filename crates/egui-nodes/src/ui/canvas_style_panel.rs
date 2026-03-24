@@ -3,16 +3,19 @@
 use egui::Ui;
 
 use crate::ui::nodes_canvas::{
-    default_rect_selection_stroke, default_selection_fill, default_selection_stroke,
-    BackgroundPattern, GridRenderMode, NodeLayout, PinPlacement, SelectionStyle, CanvasStyle,
-    WireLayer, WireStyle,
+    BackgroundPattern, CanvasStyle, GridRenderMode, PinPlacement, SelectionStyle, WireLayer,
+    WireStyle, default_rect_selection_stroke, default_selection_fill, default_selection_stroke,
 };
 
 fn edit_margin(ui: &mut Ui, label: &str, margin: &mut egui::Margin) {
     ui.label(label);
     ui.horizontal(|ui| {
         ui.label("L");
-        ui.add(egui::DragValue::new(&mut margin.left).speed(0.25).range(-64..=64));
+        ui.add(
+            egui::DragValue::new(&mut margin.left)
+                .speed(0.25)
+                .range(-64..=64),
+        );
         ui.label("R");
         ui.add(
             egui::DragValue::new(&mut margin.right)
@@ -20,7 +23,11 @@ fn edit_margin(ui: &mut Ui, label: &str, margin: &mut egui::Margin) {
                 .range(-64..=64),
         );
         ui.label("T");
-        ui.add(egui::DragValue::new(&mut margin.top).speed(0.25).range(-64..=64));
+        ui.add(
+            egui::DragValue::new(&mut margin.top)
+                .speed(0.25)
+                .range(-64..=64),
+        );
         ui.label("B");
         ui.add(
             egui::DragValue::new(&mut margin.bottom)
@@ -82,11 +89,13 @@ pub fn canvas_style_controls_ui(ui: &mut Ui, style: &mut CanvasStyle) {
     });
 
     ui.collapsing("Node layout", |ui| {
-        let mut layout = style.node_layout.unwrap_or(NodeLayout::coil());
+        let mut layout = style.node_layout.unwrap_or_default();
         ui.add(egui::Slider::new(&mut layout.min_pin_row_height, 0.0..=60.0).text("Min pin row"));
         style.node_layout = Some(layout);
         ui.checkbox(style.collapsible.get_or_insert(true), "Collapsible nodes");
-        let header_drag_space = style.header_drag_space.get_or_insert(egui::vec2(16.0, 16.0));
+        let header_drag_space = style
+            .header_drag_space
+            .get_or_insert(egui::vec2(16.0, 16.0));
         ui.add(egui::Slider::new(&mut header_drag_space.x, 0.0..=120.0).text("Header drag X"));
         ui.add(egui::Slider::new(&mut header_drag_space.y, 0.0..=120.0).text("Header drag Y"));
 
@@ -222,13 +231,17 @@ pub fn canvas_style_controls_ui(ui: &mut Ui, style: &mut CanvasStyle) {
 
     ui.separator();
     ui.collapsing("Background and colors", |ui| {
-        let mut pattern = style.bg_pattern.unwrap_or(BackgroundPattern::new());
+        let mut pattern = style.bg_pattern.unwrap_or_default();
         let mut pattern_kind = match pattern {
             BackgroundPattern::NoPattern => 0,
             BackgroundPattern::Grid(_) => 1,
         };
         egui::ComboBox::from_label("Pattern")
-            .selected_text(if pattern_kind == 0 { "NoPattern" } else { "Grid" })
+            .selected_text(if pattern_kind == 0 {
+                "NoPattern"
+            } else {
+                "Grid"
+            })
             .show_ui(ui, |ui| {
                 ui.selectable_value(&mut pattern_kind, 0, "NoPattern");
                 ui.selectable_value(&mut pattern_kind, 1, "Grid");
@@ -242,7 +255,8 @@ pub fn canvas_style_controls_ui(ui: &mut Ui, style: &mut CanvasStyle) {
             ui.add(egui::Slider::new(&mut g.spacing.x, 5.0..=200.0).text("Grid spacing X"));
             ui.add(egui::Slider::new(&mut g.spacing.y, 5.0..=200.0).text("Grid spacing Y"));
             ui.add(
-                egui::Slider::new(&mut g.angle, 0.0..=std::f32::consts::TAU).text("Grid angle (rad)"),
+                egui::Slider::new(&mut g.angle, 0.0..=std::f32::consts::TAU)
+                    .text("Grid angle (rad)"),
             );
             egui::ComboBox::from_label("Grid look")
                 .selected_text(match g.mode {
@@ -322,7 +336,9 @@ pub fn canvas_style_controls_ui(ui: &mut Ui, style: &mut CanvasStyle) {
         });
 
         ui.collapsing("Background frame", |ui| {
-            let bg_frame = style.bg_frame.get_or_insert_with(|| egui::Frame::canvas(ui.style()));
+            let bg_frame = style
+                .bg_frame
+                .get_or_insert_with(|| egui::Frame::canvas(ui.style()));
             ui.horizontal(|ui| {
                 ui.label("Fill");
                 ui.color_edit_button_srgba(&mut bg_frame.fill);
@@ -347,7 +363,10 @@ pub fn canvas_style_controls_ui(ui: &mut Ui, style: &mut CanvasStyle) {
         {
             style.max_scale = Some(min + 0.1);
         }
-        ui.checkbox(style.centering.get_or_insert(true), "Double-click centering");
+        ui.checkbox(
+            style.centering.get_or_insert(true),
+            "Double-click centering",
+        );
         ui.checkbox(
             style.select_rect_contained.get_or_insert(false),
             "Select only fully contained nodes",
