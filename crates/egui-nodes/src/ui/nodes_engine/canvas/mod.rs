@@ -11,6 +11,10 @@
 //!   the scene transform.
 //! - **Marquee select**: primary drag on empty space; nodes sit above the marquee layer and keep
 //!   drags for moving/selecting. A small movement counts as a tap and clears selection instead.
+//! - **Marquee cancel**: right mouse (press, click, or drag) on the canvas while drawing the marquee
+//!   clears the rectangle and deselects all nodes. Marquee does not run while the right button is held.
+//! - **Node drag**: primary drag on a node selects it when it was not already in the selection
+//!   (multi-select is preserved when dragging a node that remains selected).
 //! - **Click empty** (no drag): primary release on empty background clears selection.
 
 use std::{collections::HashMap, hash::Hash};
@@ -526,12 +530,19 @@ pub struct CanvasStyle {
     )]
     pub centering: Option<bool>,
 
-    /// Stroke for selection.
+    /// Stroke for the outline around **selected nodes** (not the marquee drag rectangle).
     #[cfg_attr(
         feature = "serde",
         serde(skip_serializing_if = "Option::is_none", default)
     )]
     pub select_stoke: Option<Stroke>,
+
+    /// Stroke for the **marquee** (drag rectangle on empty canvas). Independent of [`Self::select_stoke`].
+    #[cfg_attr(
+        feature = "serde",
+        serde(skip_serializing_if = "Option::is_none", default)
+    )]
+    pub rect_select_stroke: Option<Stroke>,
 
     /// Fill for selection.
     #[cfg_attr(
@@ -699,12 +710,17 @@ impl CanvasStyle {
 
     fn get_select_stroke(&self, _style: &Style) -> Stroke {
         self.select_stoke
-            .unwrap_or_else(|| Stroke::new(2.0, Color32::WHITE))
+            .unwrap_or_else(default_selection_stroke)
     }
 
-    fn get_select_fill(&self, style: &Style) -> Color32 {
+    fn get_rect_select_stroke(&self) -> Stroke {
+        self.rect_select_stroke
+            .unwrap_or_else(default_rect_selection_stroke)
+    }
+
+    fn get_select_fill(&self, _style: &Style) -> Color32 {
         self.select_fill
-            .unwrap_or_else(|| style.visuals.selection.bg_fill.gamma_multiply(0.3))
+            .unwrap_or_else(default_selection_fill)
     }
 
     fn get_select_rect_contained(&self) -> bool {
@@ -789,6 +805,7 @@ impl egui_scale::EguiScale for CanvasStyle {
         self.min_scale.scale(scale);
         self.max_scale.scale(scale);
         self.select_stoke.scale(scale);
+        self.rect_select_stroke.scale(scale);
         self.select_style.scale(scale);
     }
 }
@@ -851,12 +868,22 @@ fn uniform_window_corner_radius(style: &Style) -> CornerRadius {
     CornerRadius::same(w.nw.max(w.ne).max(w.sw).max(w.se))
 }
 
-/// Default selection stroke and fill used when [`CanvasStyle::select_stoke`] / [`CanvasStyle::select_style`] are set.
-///
-/// Playground default: 2px white outline; marquee uses [`CanvasStyle::select_fill`] when unset.
+/// Default stroke for **selected node** outline when [`CanvasStyle::select_stoke`] is unset.
 #[inline]
-fn default_selection_stroke() -> Stroke {
-    Stroke::new(2.0, Color32::WHITE)
+pub(crate) fn default_selection_stroke() -> Stroke {
+    Stroke::new(3.0, Color32::from_rgba_unmultiplied(255, 255, 255, 125))
+}
+
+/// Default stroke for the **marquee** (drag rectangle) when [`CanvasStyle::rect_select_stroke`] is unset.
+#[inline]
+pub(crate) fn default_rect_selection_stroke() -> Stroke {
+    Stroke::new(1.0, Color32::from_rgba_unmultiplied(255, 255, 255, 125))
+}
+
+/// Default fill for marquee rectangle when [`CanvasStyle::select_fill`] is unset.
+#[inline]
+pub(crate) fn default_selection_fill() -> Color32 {
+    Color32::from_rgba_unmultiplied(255, 255, 255, 25)
 }
 
 #[inline]
@@ -899,7 +926,8 @@ impl CanvasStyle {
             header_frame: None,
             centering: None,
             select_stoke: Some(selection_stroke),
-            select_fill: None,
+            rect_select_stroke: Some(default_rect_selection_stroke()),
+            select_fill: Some(default_selection_fill()),
             select_rect_contained: None,
             select_style: Some(SelectionStyle {
                 margin: Margin::same(2),
@@ -939,7 +967,6 @@ impl CanvasStyle {
         s.max_scale = Some(1.10);
         s.centering = Some(true);
         s.wire_smoothness = Some(0.0);
-        s.select_fill = Some(Color32::from_rgba_unmultiplied(80, 160, 255, 48));
         s
     }
 }
@@ -1197,10 +1224,23 @@ where
     // Map latest pointer position to graph space.
     latest_pos = latest_pos.map(|pos| from_global * pos);
 
+    // Right mouse while drawing the marquee: cancel it and clear selection (press, click, or drag).
+    let pointer_in_viewport = latest_pos.is_some_and(|pos| viewport.contains(pos));
+    if canvas_state.is_rect_selection()
+        && pointer_in_viewport
+        && ui.input(|i| i.pointer.button_down(PointerButton::Secondary))
+    {
+        canvas_state.deselect_all_nodes();
+        canvas_state.stop_rect_selection();
+    }
+
     // Rectangle (marquee) selection: primary drag on empty canvas (nodes are drawn after this layer
-    // and win hit-testing on top of nodes).
+    // and win hit-testing on top of nodes). Never combine with the right button held.
     let mut rect_selection_ended = None;
-    if select_resp.dragged_by(PointerButton::Primary) && let Some(pos) = latest_pos {
+    if select_resp.dragged_by(PointerButton::Primary)
+        && let Some(pos) = latest_pos
+        && !ui.input(|i| i.pointer.button_down(PointerButton::Secondary))
+    {
         if canvas_state.is_rect_selection() {
             canvas_state.update_rect_selection(pos);
         } else {
@@ -1401,7 +1441,7 @@ where
             select_rect,
             0.0,
             style.get_select_fill(ui.style()),
-            style.get_select_stroke(ui.style()),
+            style.get_rect_select_stroke(),
             StrokeKind::Inside,
         );
     }
@@ -2035,6 +2075,12 @@ where
     );
 
     if !modifiers.shift && !modifiers.command && r.dragged_by(PointerButton::Primary) {
+        // Dragging does not emit `clicked_by` until release; select as soon as we move so the
+        // outline matches. If this node is already part of a multi-selection, keep the set so
+        // group moves still work.
+        if !canvas_state.selected_nodes().contains(&node) {
+            canvas_state.select_one_node(true, node);
+        }
         node_moved = Some((node, r.drag_delta()));
     }
 

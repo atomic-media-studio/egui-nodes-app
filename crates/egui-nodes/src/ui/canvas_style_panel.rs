@@ -3,8 +3,9 @@
 use egui::Ui;
 
 use crate::ui::nodes_canvas::{
-    BackgroundPattern, GridRenderMode, NodeLayout, PinPlacement, SelectionStyle,
-    CanvasStyle, WireLayer, WireStyle,
+    default_rect_selection_stroke, default_selection_fill, default_selection_stroke,
+    BackgroundPattern, GridRenderMode, NodeLayout, PinPlacement, SelectionStyle, CanvasStyle,
+    WireLayer, WireStyle,
 };
 
 fn edit_margin(ui: &mut Ui, label: &str, margin: &mut egui::Margin) {
@@ -359,28 +360,36 @@ pub fn canvas_style_controls_ui(ui: &mut Ui, style: &mut CanvasStyle) {
 
     ui.separator();
     ui.collapsing("Selection", |ui| {
-        let select_stroke = style
-            .select_stoke
-            .get_or_insert(egui::Stroke::new(2.0, egui::Color32::WHITE));
+        ui.label("Marquee (drag on canvas)");
+        let rect_stroke = style
+            .rect_select_stroke
+            .get_or_insert(default_rect_selection_stroke());
+        ui.add(egui::Slider::new(&mut rect_stroke.width, 0.0..=8.0).text("Stroke width"));
+        ui.horizontal(|ui| {
+            ui.label("Stroke color");
+            ui.color_edit_button_srgba(&mut rect_stroke.color);
+        });
+
+        ui.horizontal(|ui| {
+            ui.label("Fill");
+            let fill = style.select_fill.get_or_insert(default_selection_fill());
+            ui.color_edit_button_srgba(fill);
+        });
+
+        ui.separator();
+        ui.label("Selected nodes");
+        let select_stroke = style.select_stoke.get_or_insert(default_selection_stroke());
         ui.add(egui::Slider::new(&mut select_stroke.width, 0.0..=8.0).text("Stroke width"));
         ui.horizontal(|ui| {
             ui.label("Stroke color");
             ui.color_edit_button_srgba(&mut select_stroke.color);
         });
 
-        ui.horizontal(|ui| {
-            ui.label("Fill");
-            let fill = style
-                .select_fill
-                .get_or_insert(egui::Color32::from_rgba_unmultiplied(80, 160, 255, 48));
-            ui.color_edit_button_srgba(fill);
-        });
-
         let select_style = style.select_style.get_or_insert(SelectionStyle {
             margin: egui::Margin::same(2),
             rounding: egui::CornerRadius::same(4),
             fill: egui::Color32::TRANSPARENT,
-            stroke: style.select_stoke.unwrap_or(egui::Stroke::new(2.0, egui::Color32::WHITE)),
+            stroke: style.select_stoke.unwrap_or_else(default_selection_stroke),
         });
         ui.horizontal(|ui| {
             ui.label("Style fill");
