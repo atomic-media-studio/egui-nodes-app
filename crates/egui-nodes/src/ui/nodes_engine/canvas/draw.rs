@@ -21,6 +21,8 @@ pub(crate) struct DrawNodeResponse {
     pub(crate) node_moved: Option<(NodeId, Vec2)>,
     pub(crate) node_to_top: Option<NodeId>,
     pub(crate) drag_released: bool,
+    /// Primary drag on the node **frame** ended this frame (use for snap-on-release, not per-frame snap).
+    pub(crate) node_frame_drag_stopped: Option<NodeId>,
     pub(crate) pin_hovered: Option<AnyPin>,
     pub(crate) final_rect: Rect,
 }
@@ -481,32 +483,38 @@ where
     let header_drag_space = style.get_header_drag_space(ui.style()).max(Vec2::ZERO);
 
     // Interact with node frame.
-    let r = ui.interact(
+    let frame_interact = ui.interact(
         node_frame_rect,
         node_id.with("frame"),
         Sense::click_and_drag(),
     );
 
-    if !modifiers.shift && !modifiers.command && r.dragged_by(PointerButton::Primary) {
+    let node_frame_drag_stopped = if frame_interact.drag_stopped_by(PointerButton::Primary) {
+        Some(node)
+    } else {
+        None
+    };
+
+    if !modifiers.shift && !modifiers.command && frame_interact.dragged_by(PointerButton::Primary) {
         // Dragging does not emit `clicked_by` until release; select as soon as we move so the
         // outline matches. If this node is already part of a multi-selection, keep the set so
         // group moves still work.
         if !canvas_state.selected_nodes().contains(&node) {
             canvas_state.select_one_node(true, node);
         }
-        node_moved = Some((node, r.drag_delta()));
+        node_moved = Some((node, frame_interact.drag_delta()));
     }
 
-    if r.clicked_by(PointerButton::Primary) {
+    if frame_interact.clicked_by(PointerButton::Primary) {
         canvas_state.select_one_node(true, node);
     }
 
-    if r.clicked() || r.dragged() {
+    if frame_interact.clicked() || frame_interact.dragged() {
         node_to_top = Some(node);
     }
 
     if viewer.has_node_menu(&node_graph.nodes[node.0].value) {
-        r.context_menu(|ui| {
+        frame_interact.context_menu(|ui| {
             viewer.show_node_menu(node, &inputs, &outputs, ui, node_graph);
         });
     }
@@ -518,7 +526,7 @@ where
     }
 
     if viewer.has_on_hover_popup(&node_graph.nodes[node.0].value) {
-        r.on_hover_ui_at_pointer(|ui| {
+        frame_interact.on_hover_ui_at_pointer(|ui| {
             viewer.show_on_hover_popup(node, &inputs, &outputs, ui, node_graph);
         });
     }
@@ -1122,6 +1130,7 @@ where
         node_moved,
         node_to_top,
         drag_released,
+        node_frame_drag_stopped,
         pin_hovered,
         final_rect: r.response.rect,
     })

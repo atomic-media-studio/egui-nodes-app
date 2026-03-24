@@ -535,11 +535,27 @@ pub struct CanvasStyle {
     )]
     pub wire_smoothness: Option<f32>,
 
+    /// When true, node top-left positions snap to [`Self::snap_grid_step`] in graph space when a node drag **ends** (smooth motion while dragging; no per-frame snapping).
+    #[cfg_attr(feature = "serde", serde(default))]
+    pub snap_nodes_to_grid: bool,
+
+    /// Snap step in graph space (typically match background grid spacing). Default **20×20**.
+    #[cfg_attr(
+        feature = "serde",
+        serde(default = "default_snap_grid_step_serde")
+    )]
+    pub snap_grid_step: Vec2,
+
     #[doc(hidden)]
     #[cfg_attr(feature = "egui-probe", egui_probe(skip))]
     #[cfg_attr(feature = "serde", serde(skip_serializing, default))]
     /// Do not access other than with .., here to emulate `#[non_exhaustive(pub)]`
     pub _non_exhaustive: (),
+}
+
+#[cfg(feature = "serde")]
+fn default_snap_grid_step_serde() -> Vec2 {
+    vec2(20.0, 20.0)
 }
 
 impl CanvasStyle {
@@ -753,6 +769,7 @@ impl egui_scale::EguiScale for CanvasStyle {
         self.bg_frame.scale(scale);
         self.bg_pattern.scale(scale);
         self.bg_pattern_stroke.scale(scale);
+        self.snap_grid_step *= scale;
         self.min_scale.scale(scale);
         self.max_scale.scale(scale);
         self.select_stoke.scale(scale);
@@ -888,6 +905,9 @@ impl CanvasStyle {
             }),
             crisp_magnified_text: None,
             wire_smoothness: None,
+
+            snap_nodes_to_grid: false,
+            snap_grid_step: vec2(20.0, 20.0),
 
             _non_exhaustive: (),
         }

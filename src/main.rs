@@ -94,6 +94,11 @@ impl eframe::App for TemplateApp {
                     canvas_style_controls_ui(ui, &mut self.nodes_style.canvas);
                 });
                 ui.separator();
+                ui.checkbox(
+                    &mut self.nodes_style.canvas.snap_nodes_to_grid,
+                    "Snap nodes to grid when dragging",
+                );
+                ui.separator();
                 ui.label("Last graph activity:");
                 ui.monospace(&self.last_graph_changes);
 

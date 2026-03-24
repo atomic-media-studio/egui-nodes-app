@@ -5,8 +5,8 @@ use std::hash::Hash;
 
 use egui::emath::GuiRounding;
 use egui::{
-    Color32, Context, DragPanButtons, Id, LayerId, PointerButton, Rect, Scene, Sense, Shape,
-    Stroke, StrokeKind, Ui, UiBuilder, UiKind, UiStackInfo, Vec2, response::Flags,
+    Color32, Context, DragPanButtons, Id, LayerId, PointerButton, Pos2, Rect, Scene, Sense, Shape,
+    Stroke, StrokeKind, Ui, UiBuilder, UiKind, UiStackInfo, Vec2, pos2, response::Flags,
 };
 use egui_scale::EguiScale;
 
@@ -18,6 +18,16 @@ use super::pin::{AnyPin, AnyPins};
 use super::style::CanvasStyle;
 use super::transform::clamp_scale;
 use super::wire::{WireId, WireLayer, draw_wire, hit_wire, pick_wire_style};
+
+#[inline]
+fn snap_pos_to_grid(pos: Pos2, step: Vec2) -> Pos2 {
+    let sx = step.x.max(1e-6);
+    let sy = step.y.max(1e-6);
+    pos2(
+        (pos.x / sx).round() * sx,
+        (pos.y / sy).round() * sy,
+    )
+}
 
 const fn mix_colors(a: Color32, b: Color32) -> Color32 {
     #![allow(clippy::cast_possible_truncation)]
@@ -339,6 +349,7 @@ where
 
     let draw_order = canvas_state.update_draw_order(node_graph);
     let mut drag_released = false;
+    let mut node_frame_drag_stopped: Option<NodeId> = None;
 
     let mut nodes_bb = Rect::NOTHING;
     let mut node_rects = Vec::new();
@@ -373,6 +384,9 @@ where
                 pin_hovered = Some(v);
             }
             drag_released |= response.drag_released;
+            if let Some(id) = response.node_frame_drag_stopped {
+                node_frame_drag_stopped = node_frame_drag_stopped.or(Some(id));
+            }
 
             nodes_bb = nodes_bb.union(response.final_rect);
             if rect_selection_ended.is_some() {
@@ -651,18 +665,37 @@ where
         canvas_state.node_to_top(node);
     }
 
-    if let Some((node, delta)) = node_moved
-        && node_graph.nodes.contains(node.0)
+    if let Some((moved_id, delta)) = node_moved
+        && node_graph.nodes.contains(moved_id.0)
     {
         ui.ctx().request_repaint();
-        if canvas_state.selected_nodes().contains(&node) {
-            for node in canvas_state.selected_nodes() {
-                let node = &mut node_graph.nodes[node.0];
-                node.pos += delta;
+        if canvas_state.selected_nodes().contains(&moved_id) {
+            for &nid in canvas_state.selected_nodes() {
+                let n = &mut node_graph.nodes[nid.0];
+                n.pos += delta;
             }
         } else {
-            let node = &mut node_graph.nodes[node.0];
-            node.pos += delta;
+            let n = &mut node_graph.nodes[moved_id.0];
+            n.pos += delta;
+        }
+    }
+
+    // Snap to grid once when the node drag ends (not every frame) so nodes follow the mouse smoothly.
+    if style.snap_nodes_to_grid
+        && let Some(stopped_id) = node_frame_drag_stopped
+        && node_graph.nodes.contains(stopped_id.0)
+    {
+        let step = style.snap_grid_step;
+        if canvas_state.selected_nodes().contains(&stopped_id) {
+            for &nid in canvas_state.selected_nodes() {
+                if node_graph.nodes.contains(nid.0) {
+                    let n = &mut node_graph.nodes[nid.0];
+                    n.pos = snap_pos_to_grid(n.pos, step);
+                }
+            }
+        } else {
+            let n = &mut node_graph.nodes[stopped_id.0];
+            n.pos = snap_pos_to_grid(n.pos, step);
         }
     }
 
