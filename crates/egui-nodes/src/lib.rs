@@ -21,7 +21,7 @@ pub use ui::{
     BackgroundStyle, DefaultEdgeStyleHook, DefaultNodeStyleHook, EdgeStyleHook, GraphChanges,
     GridSettings, NodeData, NodeStyleHook, NodesEditor, NodesEditorError,
     NodesShellViewer, NodesStyle, NodesView, NodesViewState, PanZoomState, SelectionState,
-    layout_to_pos2, pos2_to_layout,
+    canvas_style_controls_ui, layout_to_pos2, pos2_to_layout,
 };
 
 /// Re-export the graph crate for `use egui_nodes::graph_lib::…` or version pinning.

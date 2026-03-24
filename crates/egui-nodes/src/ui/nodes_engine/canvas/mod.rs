@@ -913,6 +913,35 @@ impl CanvasStyle {
             _non_exhaustive: (),
         }
     }
+
+    /// Canvas style matching the bundled style panel ([`crate::ui::canvas_style_panel::canvas_style_controls_ui`]).
+    ///
+    /// [`CanvasStyle::new`] stays the neutral API default; use this when you want explicit pin colors,
+    /// zoom limits, and wire options aligned with the helper panel without duplicating `Some(…)` in the app.
+    #[must_use]
+    pub fn editor_tuned() -> Self {
+        let mut s = Self::new();
+        s.node_layout = Some(NodeLayout::coil());
+        s.collapsible = Some(true);
+        s.pin_size = Some(8.0);
+        s.pin_fill = Some(Color32::from_rgba_unmultiplied(70, 70, 70, 255));
+        s.pin_stroke = Some(Stroke::new(1.5, Color32::WHITE));
+        s.pin_shape = Some(PinShape::Circle);
+        s.pin_placement = Some(PinPlacement::Edge);
+        s.wire_width = Some(3.0);
+        s.wire_frame_size = Some(32.0);
+        s.downscale_wire_frame = Some(true);
+        s.upscale_wire_frame = Some(false);
+        s.wire_style = Some(WireStyle::Bezier5);
+        s.wire_layer = Some(WireLayer::BehindNodes);
+        s.bg_pattern = Some(BackgroundPattern::new());
+        s.min_scale = Some(1.0);
+        s.max_scale = Some(1.10);
+        s.centering = Some(true);
+        s.wire_smoothness = Some(0.0);
+        s.select_fill = Some(Color32::from_rgba_unmultiplied(80, 160, 255, 48));
+        s
+    }
 }
 
 impl Default for CanvasStyle {

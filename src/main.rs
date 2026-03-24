@@ -1,7 +1,5 @@
 //! Playground: depends only on [`egui_nodes`]. NodeGraph lives under `egui_nodes::ui::nodes_engine`.
-//! NodeGraph style UI lives in [`style_panel`] so this file stays the main entry you edit first.
-
-mod style_panel;
+//! Canvas style tuning uses [`egui_nodes::canvas_style_controls_ui`] from the library.
 
 use std::cell::RefCell;
 use std::rc::Rc;
@@ -13,8 +11,8 @@ use egui_nodes::nodes_engine::{
     InPin, NodeGraph, OutPin,
 };
 use egui_nodes::{
-    GraphChanges, Layout2d, NodeData, NodesEditor, NodesShellViewer, NodesStyle, NodesView,
-    NodesViewState,
+    canvas_style_controls_ui, GraphChanges, Layout2d, NodeData, NodesEditor, NodesShellViewer,
+    NodesStyle, NodesView, NodesViewState,
 };
 
 fn main() -> eframe::Result<()> {
@@ -167,8 +165,7 @@ impl Default for TemplateApp {
         let editor = Rc::new(RefCell::new(NodesEditor::new()));
         init_demo(&mut editor.borrow_mut());
 
-        let mut nodes_style = NodesStyle::new();
-        nodes_style.canvas = style_panel::default_canvas_style();
+        let nodes_style = NodesStyle::with_editor_canvas_defaults();
 
         let viewer = NodesShellViewer::new(DemoViewer::new(Rc::clone(&editor)));
 
@@ -215,7 +212,7 @@ impl eframe::App for TemplateApp {
                 
                 
                 egui::ScrollArea::vertical().show(ui, |ui| {
-                    style_panel::style_controls_ui(ui, &mut self.nodes_style.canvas);
+                    canvas_style_controls_ui(ui, &mut self.nodes_style.canvas);
                 });
                 ui.separator();
                 ui.label("Last graph activity:");

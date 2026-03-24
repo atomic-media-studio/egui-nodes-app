@@ -1,34 +1,13 @@
-//! Node graph canvas visual tuning — types from [`egui_nodes::nodes_engine::canvas`].
+//! Optional egui UI for editing a [`CanvasStyle`] (used by the playground side panel).
 
-use eframe::egui;
-use egui_nodes::nodes_engine::canvas::{
-    BackgroundPattern, GridRenderMode, NodeLayout, PinPlacement, PinShape, SelectionStyle,
+use egui::Ui;
+
+use crate::ui::nodes_canvas::{
+    BackgroundPattern, GridRenderMode, NodeLayout, PinPlacement, SelectionStyle,
     CanvasStyle, WireLayer, WireStyle,
 };
 
-pub fn default_canvas_style() -> CanvasStyle {
-    CanvasStyle {
-        node_layout: Some(NodeLayout::coil()),
-        collapsible: Some(true),
-        pin_size: Some(8.0),
-        pin_shape: Some(PinShape::Circle),
-        pin_placement: Some(PinPlacement::Edge),
-        wire_width: Some(3.0),
-        wire_frame_size: Some(32.0),
-        downscale_wire_frame: Some(true),
-        upscale_wire_frame: Some(false),
-        wire_style: Some(WireStyle::Bezier5),
-        wire_layer: Some(WireLayer::BehindNodes),
-        bg_pattern: Some(BackgroundPattern::new()),
-        min_scale: Some(1.0),
-        max_scale: Some(1.10),
-        centering: Some(true),
-        wire_smoothness: Some(0.0),
-        ..CanvasStyle::new()
-    }
-}
-
-fn edit_margin(ui: &mut egui::Ui, label: &str, margin: &mut egui::Margin) {
+fn edit_margin(ui: &mut Ui, label: &str, margin: &mut egui::Margin) {
     ui.label(label);
     ui.horizontal(|ui| {
         ui.label("L");
@@ -50,7 +29,7 @@ fn edit_margin(ui: &mut egui::Ui, label: &str, margin: &mut egui::Margin) {
     });
 }
 
-fn edit_corner_radius(ui: &mut egui::Ui, label: &str, radius: &mut egui::CornerRadius) {
+fn edit_corner_radius(ui: &mut Ui, label: &str, radius: &mut egui::CornerRadius) {
     ui.label(label);
     ui.horizontal(|ui| {
         ui.label("NW");
@@ -66,7 +45,7 @@ fn edit_corner_radius(ui: &mut egui::Ui, label: &str, radius: &mut egui::CornerR
 
 /// Node frame corners as **T**op/**B**ottom rows × **L**eft/**R**ight columns (nw, ne, sw, se).
 fn edit_node_corner_radius_grid_tb_lr(
-    ui: &mut egui::Ui,
+    ui: &mut Ui,
     grid_id: egui::Id,
     label: &str,
     radius: &mut egui::CornerRadius,
@@ -91,14 +70,8 @@ fn edit_node_corner_radius_grid_tb_lr(
         });
 }
 
-
-
-pub fn style_controls_ui(ui: &mut egui::Ui, style: &mut CanvasStyle) {
-    // if ui.button("Reset to defaults").clicked() {
-    //     *style = default_canvas_style();
-    // }
-    // ui.separator();
-
+/// Full inspector for [`CanvasStyle`] (collapsible sections: layout, pins, wires, background, interaction, selection).
+pub fn canvas_style_controls_ui(ui: &mut Ui, style: &mut CanvasStyle) {
     // Materialize `node_frame` before any section runs so expanding "Node layout" does not flip
     // `None` → `Some` on first open (which used to change corner radius vs implicit chrome).
     style.node_frame.get_or_insert_with(|| {
@@ -164,7 +137,9 @@ pub fn style_controls_ui(ui: &mut egui::Ui, style: &mut CanvasStyle) {
 
         ui.horizontal(|ui| {
             ui.label("Pin fill");
-            let color = style.pin_fill.get_or_insert(egui::Color32::from_rgb(120, 140, 255));
+            let color = style
+                .pin_fill
+                .get_or_insert(egui::Color32::from_rgba_unmultiplied(70, 70, 70, 255));
             ui.color_edit_button_srgba(color);
         });
 
@@ -260,7 +235,7 @@ pub fn style_controls_ui(ui: &mut egui::Ui, style: &mut CanvasStyle) {
         if pattern_kind == 0 {
             pattern = BackgroundPattern::NoPattern;
         } else if !matches!(pattern, BackgroundPattern::Grid(_)) {
-            pattern = BackgroundPattern::grid(egui::vec2(50.0, 50.0), 0.0);
+            pattern = BackgroundPattern::new();
         }
         if let BackgroundPattern::Grid(g) = &mut pattern {
             ui.add(egui::Slider::new(&mut g.spacing.x, 5.0..=200.0).text("Grid spacing X"));

@@ -121,6 +121,15 @@ impl NodesStyle {
         }
     }
 
+    /// Same as [`Self::new`], but with [`CanvasStyle::editor_tuned`] for the canvas (matches the bundled style panel defaults).
+    #[must_use]
+    pub fn with_editor_canvas_defaults() -> Self {
+        Self {
+            canvas: CanvasStyle::editor_tuned(),
+            ..Self::new()
+        }
+    }
+
     pub fn with_node_style(mut self, hook: impl NodeStyleHook + 'static) -> Self {
         self.node_style = Arc::new(hook);
         self

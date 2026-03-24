@@ -1,6 +1,6 @@
 # egui-nodes-app
 
-An `egui` application instancing two custom libraries:
+Rust `egui` application instancing two custom libraries:
 
 - graph-lib: a headless directed graph library
 - egui-nodes: a node-link environment library for egui
@@ -24,15 +24,14 @@ cargo build --release
 ```text
 ├── Cargo.toml                 # workspace root
 ├── src/                       # demo binary (default `cargo run`)
-│   ├── main.rs
-│   └── style_panel.rs         # canvas / NodesStyle tuning for the demo
+│   └── main.rs
 └── crates/
     ├── graph-lib/             # Rust crate `graph_lib`
     └── egui-nodes/            # Rust crate `egui_nodes`
         └── src/
             ├── lib.rs         # public re-exports (see below)
             ├── io.rs          # load_graph / save_graph
-            └── ui/            # editor, nodes_engine (NodeGraph + canvas), view, style, …
+            └── ui/            # editor, nodes_engine (NodeGraph + canvas), canvas_style_panel, …
 ```
 
 
