@@ -24,8 +24,8 @@ pub enum GridRenderMode {
 }
 
 /// Grid background pattern.
-/// Stroke defaults come from the canvas style’s background stroke; use [`Grid::color`] to override
-/// per instance.
+/// When [`CanvasStyle::bg_pattern_stroke`] is `None`, pattern line width defaults to **0.30** (theme stroke color).
+/// Use [`Grid::color`] to override line color per instance.
 #[derive(Clone, Copy, Debug, PartialEq)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 #[cfg_attr(feature = "egui-probe", derive(egui_probe::EguiProbe))]
@@ -43,24 +43,24 @@ pub struct Grid {
     /// Offset in pattern space before rotation (animate for drift / parallax).
     pub phase: Vec2,
 
-    /// Radius for [`GridRenderMode::Dots`] (logical pixels; scaled when the NodeGraph zoom changes).
+    /// Radius for [`GridRenderMode::Dots`] (logical pixels; scales with zoom).
     pub dot_radius: f32,
 
     /// Optional color override. If `None`, uses [`CanvasStyle::get_bg_pattern_stroke`] color.
     pub color: Option<Color32>,
 }
 
-const DEFAULT_GRID_SPACING: Vec2 = vec2(50.0, 50.0);
+const DEFAULT_GRID_SPACING: Vec2 = vec2(20.0, 20.0);
 macro_rules! default_grid_spacing {
     () => {
-        stringify!(vec2(50.0, 50.0))
+        stringify!(vec2(20.0, 20.0))
     };
 }
 
-const DEFAULT_GRID_ANGLE: f32 = 1.0;
+const DEFAULT_GRID_ANGLE: f32 = 0.0;
 macro_rules! default_grid_angle {
     () => {
-        stringify!(1.0)
+        stringify!(0.0)
     };
 }
 
@@ -69,24 +69,24 @@ impl Default for Grid {
         Self {
             spacing: DEFAULT_GRID_SPACING,
             angle: DEFAULT_GRID_ANGLE,
-            mode: GridRenderMode::Lines,
+            mode: GridRenderMode::Dots,
             phase: Vec2::ZERO,
-            dot_radius: 2.0,
+            dot_radius: 0.5,
             color: None,
         }
     }
 }
 
 impl Grid {
-    /// Create new grid with given spacing and angle (line mode, no phase, default dot radius).
+    /// Create new grid with given spacing and angle ([`GridRenderMode::Dots`], default dot radius 0.5).
     #[must_use]
     pub const fn new(spacing: Vec2, angle: f32) -> Self {
         Self {
             spacing,
             angle,
-            mode: GridRenderMode::Lines,
+            mode: GridRenderMode::Dots,
             phase: Vec2::ZERO,
-            dot_radius: 2.0,
+            dot_radius: 0.5,
             color: None,
         }
     }
@@ -226,7 +226,7 @@ pub enum BackgroundPattern {
     /// No pattern.
     NoPattern,
 
-    /// Linear grid (lines and/or dots).
+    /// Linear grid (lines and/or filled dots at intersections).
     #[cfg_attr(feature = "egui-probe", egui_probe(transparent))]
     Grid(Grid),
 }

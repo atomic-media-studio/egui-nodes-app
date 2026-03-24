@@ -1,4 +1,4 @@
-//! **dag-lib** — directed graph model for **dataflow**: nodes, typed pins, and links from outputs to inputs.
+//! **graph-lib** — directed graph model for **dataflow**: nodes, typed pins, and links from outputs to inputs.
 //!
 //! # Directed acyclic graph (DAG) semantics
 //!

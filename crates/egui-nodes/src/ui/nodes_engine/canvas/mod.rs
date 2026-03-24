@@ -476,7 +476,7 @@ pub struct CanvasStyle {
     )]
     pub wire_layer: Option<WireLayer>,
 
-    /// Frame used to draw background
+    /// Frame behind the graph. When `None`, uses [`Frame::canvas`] with fill `(19, 19, 19, 255)`.
     #[cfg_attr(
         feature = "serde",
         serde(
@@ -488,7 +488,7 @@ pub struct CanvasStyle {
     pub bg_frame: Option<Frame>,
 
     /// Background pattern.
-    /// Defaults to [`BackgroundPattern::Grid`].
+    /// [`CanvasStyle::new`] sets this to [`BackgroundPattern::new`] (dots, 20×20, radius 0.5).
     #[cfg_attr(
         feature = "serde",
         serde(skip_serializing_if = "Option::is_none", default)
@@ -496,7 +496,7 @@ pub struct CanvasStyle {
     pub bg_pattern: Option<BackgroundPattern>,
 
     /// Stroke for background pattern.
-    /// Defaults to `ui.visuals().widgets.noninteractive.bg_stroke`.
+    /// When `None`, width defaults to **0.30** and color to [`Style::visuals`] noninteractive stroke color.
     #[cfg_attr(
         feature = "serde",
         serde(skip_serializing_if = "Option::is_none", default)
@@ -644,12 +644,18 @@ impl CanvasStyle {
     }
 
     fn get_bg_frame(&self, style: &Style) -> Frame {
-        self.bg_frame.unwrap_or_else(|| Frame::canvas(style))
+        self.bg_frame.unwrap_or_else(|| {
+            let mut f = Frame::canvas(style);
+            f.fill = Color32::from_rgba_unmultiplied(19, 19, 19, 255);
+            f
+        })
     }
 
     fn get_bg_pattern_stroke(&self, style: &Style) -> Stroke {
-        self.bg_pattern_stroke
-            .unwrap_or(style.visuals.widgets.noninteractive.bg_stroke)
+        self.bg_pattern_stroke.unwrap_or_else(|| {
+            let base = style.visuals.widgets.noninteractive.bg_stroke;
+            Stroke::new(0.30, base.color)
+        })
     }
 
     fn get_min_scale(&self) -> f32 {
@@ -660,8 +666,8 @@ impl CanvasStyle {
         self.max_scale.unwrap_or(2.0)
     }
 
-    /// Rounding for node/header chrome and the selection outline when `select_style` is set
-    /// (playground default `6`); if `select_style` is `None`, uses uniform window theme rounding.
+    /// Rounding aligned with the selection outline when `select_style` is set; if `None`, uniform window theme.
+    /// Used only when [`CanvasStyle::node_frame`] is `None` so explicit frames keep per-corner edits from the UI.
     #[inline]
     fn default_chrome_corner_rounding(&self, style: &Style) -> CornerRadius {
         self.select_style
@@ -670,34 +676,30 @@ impl CanvasStyle {
     }
 
     fn get_node_frame(&self, style: &Style) -> Frame {
-        let mut f = self
-            .node_frame
-            .unwrap_or_else(|| Frame::window(style));
-        // Always align with selection: `node_frame` is often `Some` from UI `get_or_insert(Frame::window)`, which
-        // would otherwise keep the window theme radius and ignore `select_style.rounding`.
-        f.corner_radius = self.default_chrome_corner_rounding(style);
-        f
+        match self.node_frame {
+            Some(f) => f,
+            None => {
+                let mut f = Frame::window(style);
+                f.corner_radius = self.default_chrome_corner_rounding(style);
+                f
+            }
+        }
     }
 
     fn get_header_frame(&self, style: &Style) -> Frame {
-        let mut f = self
-            .header_frame
-            .unwrap_or_else(|| self.get_node_frame(style).shadow(Shadow::NONE));
-        f.corner_radius = self.default_chrome_corner_rounding(style);
-        f
+        match self.header_frame {
+            Some(h) => h,
+            None => self.get_node_frame(style).shadow(Shadow::NONE),
+        }
     }
 
     fn get_centering(&self) -> bool {
         self.centering.unwrap_or(true)
     }
 
-    fn get_select_stroke(&self, style: &Style) -> Stroke {
-        self.select_stoke.unwrap_or_else(|| {
-            Stroke::new(
-                4.0,
-                style.visuals.selection.stroke.color.gamma_multiply(0.5),
-            )
-        })
+    fn get_select_stroke(&self, _style: &Style) -> Stroke {
+        self.select_stoke
+            .unwrap_or_else(|| Stroke::new(2.0, Color32::WHITE))
     }
 
     fn get_select_fill(&self, style: &Style) -> Color32 {
@@ -713,12 +715,7 @@ impl CanvasStyle {
         self.select_style.unwrap_or_else(|| {
             let rounding = self.default_chrome_corner_rounding(style);
             SelectionStyle {
-                margin: Margin {
-                    left: 3,
-                    right: 3,
-                    top: 3,
-                    bottom: 3,
-                },
+                margin: Margin::same(2),
                 rounding,
                 // Border only; marquee drag-rect still uses [`get_select_fill`].
                 fill: Color32::TRANSPARENT,
@@ -856,21 +853,21 @@ fn uniform_window_corner_radius(style: &Style) -> CornerRadius {
 
 /// Default selection stroke and fill used when [`CanvasStyle::select_stoke`] / [`CanvasStyle::select_style`] are set.
 ///
-/// Matches the playground: 4px blue outline; marquee uses [`CanvasStyle::select_fill`] when unset.
+/// Playground default: 2px white outline; marquee uses [`CanvasStyle::select_fill`] when unset.
 #[inline]
 fn default_selection_stroke() -> Stroke {
-    Stroke::new(4.0, Color32::from_rgb(80, 160, 255))
+    Stroke::new(2.0, Color32::WHITE)
 }
 
 #[inline]
 fn default_selection_rounding() -> CornerRadius {
-    CornerRadius::same(6)
+    CornerRadius::same(4)
 }
 
 impl CanvasStyle {
     /// Creates new [`CanvasStyle`] filled with default values.
     ///
-    /// Selection uses explicit blue stroke and margins so the first frame matches later frames
+    /// Selection uses explicit stroke, margins, and rounding so the first frame matches later frames
     /// (no dependency on theme-only fallbacks before the first style sync).
     #[must_use]
     pub fn new() -> Self {
@@ -893,7 +890,7 @@ impl CanvasStyle {
             collapsible: None,
 
             bg_frame: None,
-            bg_pattern: None,
+            bg_pattern: Some(BackgroundPattern::new()),
             bg_pattern_stroke: None,
 
             min_scale: None,
@@ -905,12 +902,7 @@ impl CanvasStyle {
             select_fill: None,
             select_rect_contained: None,
             select_style: Some(SelectionStyle {
-                margin: Margin {
-                    left: 3,
-                    right: 3,
-                    top: 3,
-                    bottom: 3,
-                },
+                margin: Margin::same(2),
                 rounding: selection_rounding,
                 fill: Color32::TRANSPARENT,
                 stroke: selection_stroke,

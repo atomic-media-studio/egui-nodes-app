@@ -12,7 +12,7 @@ pub use editor::{
     GraphChanges, NodeData, NodesEditor, NodesEditorError, layout_to_pos2, pos2_to_layout,
 };
 pub use state::{
-    InteractionMode, NodesViewState, PanZoomState, SelectionState,
+    NodesViewState, PanZoomState, SelectionState,
 };
 pub use style::{
     BackgroundStyle, DefaultEdgeStyleHook, DefaultNodeStyleHook, EdgeStyleHook, GridSettings,

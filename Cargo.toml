@@ -1,6 +1,6 @@
 [workspace]
 members = [
-    "crates/dag-lib",
+    "crates/graph-lib",
     "crates/egui-nodes",
     ".",
 ]

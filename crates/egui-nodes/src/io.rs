@@ -1,4 +1,4 @@
-//! JSON load/save helpers for serializable graphs (e.g. [`dag_lib::Graph`] with `serde`).
+//! JSON load/save helpers for serializable graphs (e.g. [`graph_lib::Graph`] with `serde`).
 
 use std::path::Path;
 
@@ -6,7 +6,7 @@ use anyhow::Context;
 use serde::Serialize;
 use serde::de::DeserializeOwned;
 
-/// Pretty JSON snapshot of any serializable value (e.g. [`dag_lib::Graph`]).
+/// Pretty JSON snapshot of any serializable value (e.g. [`graph_lib::Graph`]).
 pub fn save_graph<G: Serialize>(graph: &G, path: impl AsRef<Path>) -> anyhow::Result<()> {
     let path = path.as_ref();
     if let Some(parent) = path.parent() {

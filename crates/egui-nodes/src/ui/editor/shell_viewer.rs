@@ -1,5 +1,4 @@
-//! [`NodesShellViewer`] decorates a [`NodeGraphViewer`] with [`NodesStyle`] strokes and
-//! [`InteractionMode`] (e.g. inspect).
+//! [`NodesShellViewer`] decorates a [`NodeGraphViewer`] with [`NodesStyle`] strokes.
 
 use std::sync::Arc;
 
@@ -11,15 +10,13 @@ use crate::ui::nodes_canvas::{
     AnyPins, BackgroundPattern, CanvasStyle, NodeGraphViewer, get_selected_nodes,
 };
 
-use crate::ui::state::InteractionMode;
 use crate::ui::style::NodesStyle;
 
-/// Wraps your [`NodeGraphViewer`] to apply [`NodesStyle`] node strokes and enforce [`InteractionMode::Inspect`].
+/// Wraps your [`NodeGraphViewer`] to apply [`NodesStyle`] node strokes.
 pub struct NodesShellViewer<V> {
     pub inner: V,
     style: Arc<NodesStyle>,
     canvas_id: Id,
-    mode: InteractionMode,
     ctx: Option<Context>,
 }
 
@@ -29,7 +26,6 @@ impl<V> NodesShellViewer<V> {
             inner,
             style: Arc::new(NodesStyle::new()),
             canvas_id: Id::NULL,
-            mode: InteractionMode::Select,
             ctx: None,
         }
     }
@@ -37,18 +33,12 @@ impl<V> NodesShellViewer<V> {
     pub(crate) fn prepare(
         &mut self,
         canvas_id: Id,
-        mode: InteractionMode,
         ctx: &Context,
         style: &NodesStyle,
     ) {
         self.canvas_id = canvas_id;
-        self.mode = mode;
         self.ctx = Some(ctx.clone());
         self.style = Arc::new(style.clone());
-    }
-
-    fn inspect(&self) -> bool {
-        self.mode == InteractionMode::Inspect
     }
 }
 
@@ -237,23 +227,14 @@ impl<T, V: NodeGraphViewer<T>> NodeGraphViewer<T> for NodesShellViewer<V> {
     }
 
     fn has_graph_menu(&mut self, pos: Pos2, node_graph: &mut NodeGraph<T>) -> bool {
-        if self.inspect() {
-            return false;
-        }
         self.inner.has_graph_menu(pos, node_graph)
     }
 
     fn show_graph_menu(&mut self, pos: Pos2, ui: &mut Ui, node_graph: &mut NodeGraph<T>) {
-        if self.inspect() {
-            return;
-        }
         self.inner.show_graph_menu(pos, ui, node_graph)
     }
 
     fn has_dropped_wire_menu(&mut self, src_pins: AnyPins, node_graph: &mut NodeGraph<T>) -> bool {
-        if self.inspect() {
-            return false;
-        }
         self.inner.has_dropped_wire_menu(src_pins, node_graph)
     }
 
@@ -264,16 +245,10 @@ impl<T, V: NodeGraphViewer<T>> NodeGraphViewer<T> for NodesShellViewer<V> {
         src_pins: AnyPins,
         node_graph: &mut NodeGraph<T>,
     ) {
-        if self.inspect() {
-            return;
-        }
         self.inner.show_dropped_wire_menu(pos, ui, src_pins, node_graph)
     }
 
     fn has_node_menu(&mut self, node: &T) -> bool {
-        if self.inspect() {
-            return false;
-        }
         self.inner.has_node_menu(node)
     }
 
@@ -285,38 +260,23 @@ impl<T, V: NodeGraphViewer<T>> NodeGraphViewer<T> for NodesShellViewer<V> {
         ui: &mut Ui,
         node_graph: &mut NodeGraph<T>,
     ) {
-        if self.inspect() {
-            return;
-        }
         self.inner
             .show_node_menu(node, inputs, outputs, ui, node_graph)
     }
 
     fn connect(&mut self, from: &OutPin, to: &InPin, node_graph: &mut NodeGraph<T>) {
-        if self.inspect() {
-            return;
-        }
         self.inner.connect(from, to, node_graph)
     }
 
     fn disconnect(&mut self, from: &OutPin, to: &InPin, node_graph: &mut NodeGraph<T>) {
-        if self.inspect() {
-            return;
-        }
         self.inner.disconnect(from, to, node_graph)
     }
 
     fn drop_outputs(&mut self, pin: &OutPin, node_graph: &mut NodeGraph<T>) {
-        if self.inspect() {
-            return;
-        }
         self.inner.drop_outputs(pin, node_graph)
     }
 
     fn drop_inputs(&mut self, pin: &InPin, node_graph: &mut NodeGraph<T>) {
-        if self.inspect() {
-            return;
-        }
         self.inner.drop_inputs(pin, node_graph)
     }
 

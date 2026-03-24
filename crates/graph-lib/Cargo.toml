@@ -1,5 +1,5 @@
 [package]
-name = "dag-lib"
+name = "graph-lib"
 version = "0.1.0"
 edition = "2024"
 description = "Directed graph model for dataflow (DAG-oriented), stable ids, optional evaluation — no GUI"

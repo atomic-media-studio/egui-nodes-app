@@ -19,12 +19,12 @@ use egui_nodes::{
 
 fn main() -> eframe::Result<()> {
     let options = eframe::NativeOptions {
-        viewport: egui::ViewportBuilder::default().with_inner_size([1280.0, 720.0]),
+        viewport: egui::ViewportBuilder::default().with_inner_size([1280.0, 820.0]),
         persist_window: true,
         ..Default::default()
     };
     eframe::run_native(
-        "egui-nodes playground",
+        "graph-lib and egui-nodes playground",
         options,
         Box::new(|cc| {
             let mut fonts = egui::FontDefinitions::default();
@@ -199,11 +199,12 @@ fn format_graph_changes(c: &GraphChanges) -> String {
 impl eframe::App for TemplateApp {
     fn update(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
         egui::TopBottomPanel::top("top-bar").show(ctx, |ui| {
-            ui.heading("egui-nodes playground");
+            ui.heading("graph-lib and egui-nodes playground");
             ui.horizontal(|ui| {
                 let _ = ui.button(regular::ALARM);
                 let _ = ui.button(regular::AIRPLANE);
             });
+            ui.add_space(10.0);
         });
 
         egui::SidePanel::left("node_graph-controls")
@@ -220,6 +221,7 @@ impl eframe::App for TemplateApp {
                 ui.label("Last graph activity:");
                 ui.monospace(&self.last_graph_changes);
 
+                ui.separator();
             });
 
         egui::CentralPanel::default().show(ctx, |ui| {

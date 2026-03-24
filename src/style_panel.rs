@@ -19,7 +19,7 @@ pub fn default_canvas_style() -> CanvasStyle {
         upscale_wire_frame: Some(false),
         wire_style: Some(WireStyle::Bezier5),
         wire_layer: Some(WireLayer::BehindNodes),
-        bg_pattern: Some(BackgroundPattern::grid(egui::vec2(50.0, 50.0), 0.0)),
+        bg_pattern: Some(BackgroundPattern::new()),
         min_scale: Some(1.0),
         max_scale: Some(1.10),
         centering: Some(true),
@@ -64,11 +64,48 @@ fn edit_corner_radius(ui: &mut egui::Ui, label: &str, radius: &mut egui::CornerR
     });
 }
 
+/// Node frame corners as **T**op/**B**ottom rows × **L**eft/**R**ight columns (nw, ne, sw, se).
+fn edit_node_corner_radius_grid_tb_lr(
+    ui: &mut egui::Ui,
+    grid_id: egui::Id,
+    label: &str,
+    radius: &mut egui::CornerRadius,
+) {
+    ui.label(label);
+    egui::Grid::new(grid_id)
+        .num_columns(3)
+        .spacing([8.0, 4.0])
+        .show(ui, |ui| {
+            ui.label("");
+            ui.label("L");
+            ui.label("R");
+            ui.end_row();
+            ui.label("T");
+            ui.add(egui::DragValue::new(&mut radius.nw).range(0..=64));
+            ui.add(egui::DragValue::new(&mut radius.ne).range(0..=64));
+            ui.end_row();
+            ui.label("B");
+            ui.add(egui::DragValue::new(&mut radius.sw).range(0..=64));
+            ui.add(egui::DragValue::new(&mut radius.se).range(0..=64));
+            ui.end_row();
+        });
+}
+
+
+
 pub fn style_controls_ui(ui: &mut egui::Ui, style: &mut CanvasStyle) {
-    if ui.button("Reset to defaults").clicked() {
-        *style = default_canvas_style();
-    }
-    ui.separator();
+    // if ui.button("Reset to defaults").clicked() {
+    //     *style = default_canvas_style();
+    // }
+    // ui.separator();
+
+    // Materialize `node_frame` before any section runs so expanding "Node layout" does not flip
+    // `None` → `Some` on first open (which used to change corner radius vs implicit chrome).
+    style.node_frame.get_or_insert_with(|| {
+        let mut f = egui::Frame::window(ui.style());
+        f.corner_radius = egui::CornerRadius::same(4);
+        f
+    });
 
     ui.collapsing("Node layout", |ui| {
         let mut layout = style.node_layout.unwrap_or(NodeLayout::coil());
@@ -78,6 +115,16 @@ pub fn style_controls_ui(ui: &mut egui::Ui, style: &mut CanvasStyle) {
         let header_drag_space = style.header_drag_space.get_or_insert(egui::vec2(16.0, 16.0));
         ui.add(egui::Slider::new(&mut header_drag_space.x, 0.0..=120.0).text("Header drag X"));
         ui.add(egui::Slider::new(&mut header_drag_space.y, 0.0..=120.0).text("Header drag Y"));
+
+        let node_frame = style
+            .node_frame
+            .get_or_insert_with(|| egui::Frame::window(ui.style()));
+        edit_node_corner_radius_grid_tb_lr(
+            ui,
+            ui.make_persistent_id("node_layout_node_corner_radius"),
+            "Node corner radius (T/B × L/R)",
+            &mut node_frame.corner_radius,
+        );
     });
 
     ui.separator();
@@ -224,15 +271,11 @@ pub fn style_controls_ui(ui: &mut egui::Ui, style: &mut CanvasStyle) {
             egui::ComboBox::from_label("Grid look")
                 .selected_text(match g.mode {
                     GridRenderMode::Lines => "Lines",
-                    GridRenderMode::Dots => "Dots (intersections only)",
+                    GridRenderMode::Dots => "Dots (filled)",
                 })
                 .show_ui(ui, |ui| {
                     ui.selectable_value(&mut g.mode, GridRenderMode::Lines, "Lines");
-                    ui.selectable_value(
-                        &mut g.mode,
-                        GridRenderMode::Dots,
-                        "Dots (intersections only)",
-                    );
+                    ui.selectable_value(&mut g.mode, GridRenderMode::Dots, "Dots (filled)");
                 });
             ui.add(egui::Slider::new(&mut g.phase.x, -200.0..=200.0).text("Phase X"));
             ui.add(egui::Slider::new(&mut g.phase.y, -200.0..=200.0).text("Phase Y"));
@@ -343,7 +386,7 @@ pub fn style_controls_ui(ui: &mut egui::Ui, style: &mut CanvasStyle) {
     ui.collapsing("Selection", |ui| {
         let select_stroke = style
             .select_stoke
-            .get_or_insert(egui::Stroke::new(4.0, egui::Color32::from_rgb(80, 160, 255)));
+            .get_or_insert(egui::Stroke::new(2.0, egui::Color32::WHITE));
         ui.add(egui::Slider::new(&mut select_stroke.width, 0.0..=8.0).text("Stroke width"));
         ui.horizontal(|ui| {
             ui.label("Stroke color");
@@ -358,24 +401,11 @@ pub fn style_controls_ui(ui: &mut egui::Ui, style: &mut CanvasStyle) {
             ui.color_edit_button_srgba(fill);
         });
 
-        let mut rounding = ui.visuals().window_corner_radius;
-        rounding.sw = 6;
-        rounding.se = 6;
-        rounding.ne = 6;
-        rounding.nw = 6;
         let select_style = style.select_style.get_or_insert(SelectionStyle {
-            margin: egui::Margin {
-                left: 3,
-                right: 3,
-                top: 3,
-                bottom: 3,
-            },
-            rounding,
+            margin: egui::Margin::same(2),
+            rounding: egui::CornerRadius::same(4),
             fill: egui::Color32::TRANSPARENT,
-            stroke: style.select_stoke.unwrap_or(egui::Stroke::new(
-                4.0,
-                egui::Color32::from_rgb(80, 160, 255),
-            )),
+            stroke: style.select_stoke.unwrap_or(egui::Stroke::new(2.0, egui::Color32::WHITE)),
         });
         ui.horizontal(|ui| {
             ui.label("Style fill");

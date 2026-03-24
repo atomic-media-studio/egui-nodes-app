@@ -11,7 +11,7 @@ pub struct PanZoomState;
 #[derive(Clone, Copy, Debug, Default)]
 pub struct SelectionState;
 
-/// View state separate from the headless [`dag_lib::Graph`]: reserved for future overlays.
+/// View state separate from the headless [`graph_lib::Graph`]: reserved for future overlays.
 #[derive(Clone, Debug, Default)]
 pub struct NodesViewState {
     pub pan_zoom: PanZoomState,

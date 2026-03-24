@@ -1,8 +1,8 @@
-//! Bridges [`dag_lib::Graph`] and [`NodeGraph`](crate::ui::nodes_engine::NodeGraph): bidirectional
+//! Bridges [`graph_lib::Graph`] and [`NodeGraph`](crate::ui::nodes_engine::NodeGraph): bidirectional
 //! id mapping, wire sync, and [`GraphChanges`] so evaluation runs only when something changed.
 //!
-//! This layer stays in **egui-nodes** (not **dag-lib**): it maps slab canvas indices ↔ [`PinId`]
-//! and merges the two wire sets. Pure topology and DAG checks live in [`dag_lib`].
+//! This layer stays in **egui-nodes** (not **graph-lib**): it maps slab canvas indices ↔ [`PinId`]
+//! and merges the two wire sets. Pure topology and DAG checks live in [`graph_lib`].
 
 pub mod shell_viewer;
 
@@ -11,7 +11,7 @@ use std::fmt;
 
 use egui::Pos2;
 
-use dag_lib::{Graph, GraphError, Layout2d, LinkId, NodeId, PinId};
+use graph_lib::{Graph, GraphError, Layout2d, LinkId, NodeId, PinId};
 
 use crate::ui::nodes_engine::{InPinId, NodeId as ViewNodeId, OutPinId, NodeGraph};
 
@@ -36,13 +36,13 @@ pub struct NodeData<N> {
 
 /// Accumulated edits since the last [`NodesEditor::take_graph_changes`].
 ///
-/// Use this to drive [`dag_lib::Executor::recompute_topology`] / evaluation only when something
+/// Use this to drive [`graph_lib::Executor::recompute_topology`] / evaluation only when something
 /// actually changed, instead of every frame.
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
 pub struct GraphChanges {
     /// Node/link connectivity changed (add/remove wire or node).
     pub topology_changed: bool,
-    /// Node payload, [`dag_lib::Layout2d`], or collapse state changed (NodeGraph ↔ graph sync).
+    /// Node payload, [`graph_lib::Layout2d`], or collapse state changed (NodeGraph ↔ graph sync).
     pub payload_or_layout_changed: bool,
 }
 
@@ -90,8 +90,8 @@ impl From<GraphError> for NodesEditorError {
 /// Owns the headless [`Graph`] and the [`NodeGraph`] view; maps [`NodeId`] ↔ [`ViewNodeId`].
 ///
 /// After [`crate::NodesView::show`](crate::ui::view::NodesView::show), call [`Self::take_graph_changes`]
-/// once to see whether topology or payloads changed — then refresh a [`dag_lib::Executor`] only when
-/// needed (e.g. [`GraphChanges::topology_changed`] ⇒ [`dag_lib::Executor::recompute_topology`]).
+/// once to see whether topology or payloads changed — then refresh a [`graph_lib::Executor`] only when
+/// needed (e.g. [`GraphChanges::topology_changed`] ⇒ [`graph_lib::Executor::recompute_topology`]).
 pub struct NodesEditor<N, E> {
     pub graph: Graph<N, E>,
     pub node_graph: NodeGraph<NodeData<N>>,
