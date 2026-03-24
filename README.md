@@ -17,6 +17,9 @@ cargo run
 
 # Distribution: Builds to 'target/release/'
 cargo build --release
+
+# Check documentation
+cargo doc -p egui-nodes --no-deps --open
 ```
 
 ## Repository structure

@@ -21,6 +21,7 @@
 //! - `style` — [`CanvasStyle`], [`NodeLayout`], selection chrome.
 //! - `scene` — [`NodesCanvas`], pan/zoom, marquee, wires pass.
 //! - `draw` — per-node layout and pin drawing (`draw_node`).
+//! - `graph_menu` — [`apply_graph_menu_width`] and optional print helpers for [`NodeGraphViewer::show_graph_menu`].
 
 use std::hash::Hash;
 
@@ -30,6 +31,7 @@ use super::NodeGraph;
 
 mod background_pattern;
 mod draw;
+mod graph_menu;
 mod graph_state;
 mod node_viewer;
 mod pin;
@@ -40,6 +42,11 @@ mod wire;
 
 pub use self::{
     background_pattern::{BackgroundPattern, Grid, GridRenderMode},
+    graph_menu::{
+        apply_graph_menu_width, print_graph_menu_button_clicked, print_graph_menu_float_clicked,
+        print_graph_menu_int_clicked, print_graph_menu_sink_clicked, print_graph_menu_string_clicked,
+        GRAPH_MENU_DEFAULT_WIDTH,
+    },
     graph_state::get_selected_nodes,
     node_viewer::NodeGraphViewer,
     pin::{AnyPins, GraphPin, PinInfo, PinShape, PinWireInfo},

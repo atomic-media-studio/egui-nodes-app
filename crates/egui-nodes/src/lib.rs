@@ -5,7 +5,7 @@
 //!   evaluation. No egui.
 //! - **This crate** — [`NodesEditor`] / [`NodesView`], [`NodeGraph`](crate::ui::nodes_engine::NodeGraph),
 //!   canvas ([`crate::ui::nodes_engine::canvas`]), and styling. [`NodeData`] maps slab nodes to
-//!   [`graph_lib::NodeId`].
+//!   [`graph_lib::NodeId`]. Preset payloads: [`DefaultNode`] and [`DefaultNodeViewer`].
 //! - **[`ui`]** — editor session, shell viewer, and the nodes engine.
 
 pub mod io;
@@ -18,10 +18,11 @@ pub use graph_lib::{
 };
 pub use io::{load_graph, save_graph};
 pub use ui::{
-    BackgroundStyle, DefaultEdgeStyleHook, DefaultNodeStyleHook, EdgeStyleHook, GraphChanges,
-    GridSettings, NodeData, NodeStyleHook, NodesEditor, NodesEditorError, NodesShellViewer,
-    NodesStyle, NodesView, NodesViewState, PanZoomState, SelectionState, canvas_style_controls_ui,
-    layout_to_pos2, pos2_to_layout,
+    BackgroundStyle, DefaultEdgeStyleHook, DefaultNode, DefaultNodeStyleHook, DefaultNodeViewer,
+    EdgeStyleHook, GraphChanges, GridSettings, NodeData, NodeStyleHook, NodesEditor,
+    NodesEditorError, NodesShellViewer, NodesStyle, NodesView, NodesViewState, PanZoomState,
+    SelectionState, canvas_style_controls_ui, layout_to_pos2, pos2_to_layout,
+    seed_default_demo_graph,
 };
 
 /// Re-export the graph crate for `use egui_nodes::graph_lib::…` or version pinning.

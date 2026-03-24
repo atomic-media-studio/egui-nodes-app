@@ -241,7 +241,11 @@ where
     let mut viewport_clip = from_global * clip_rect;
     ui.set_clip_rect(viewport.intersect(viewport_clip));
 
-    let select_resp = ui.interact(viewport, canvas_id.with("select"), Sense::drag());
+    // `Sense::drag()` does not participate in click hit-testing, so right-clicks never become
+    // `secondary_clicked()` on this widget and `Popup::context_menu` never opens. Use
+    // `click_and_drag` so empty-canvas primary/secondary clicks are attributed here (nodes still
+    // win when drawn on top).
+    let select_resp = ui.interact(viewport, canvas_id.with("select"), Sense::click_and_drag());
     if select_resp.dragged_by(PointerButton::Secondary)
         || select_resp.dragged_by(PointerButton::Middle)
     {
@@ -494,12 +498,12 @@ where
         panel_resp.flags.remove(Flags::CLICKED);
     }
 
-    if style.get_centering() && panel_resp.double_clicked() && nodes_bb.is_finite() {
+    if style.get_centering() && select_resp.double_clicked() && nodes_bb.is_finite() {
         let nodes_bb = nodes_bb.expand(100.0);
         canvas_state.look_at(nodes_bb, ui_rect, min_scale, max_scale);
     }
 
-    if panel_resp.clicked_by(PointerButton::Primary) {
+    if select_resp.clicked_by(PointerButton::Primary) {
         canvas_state.deselect_all_nodes();
     }
 
@@ -578,7 +582,7 @@ where
                 });
             }
         } else if viewer.has_graph_menu(interact_pos, node_graph) {
-            panel_resp.context_menu(|ui| {
+            select_resp.context_menu(|ui| {
                 let menu_pos = from_global * ui.cursor().min;
 
                 viewer.show_graph_menu(menu_pos, ui, node_graph);
