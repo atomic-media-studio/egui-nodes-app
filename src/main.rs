@@ -196,6 +196,8 @@ impl eframe::App for TemplateApp {
             });
             ui.separator();
 
+            let backspace_pressed = ui.input(|i| i.key_pressed(egui::Key::Backspace));
+
             let mut ed = self.editor.borrow_mut();
             let mut nodes_view = NodesView::new(
                 &mut *ed,
@@ -205,6 +207,17 @@ impl eframe::App for TemplateApp {
             )
             .with_canvas_id(main_nodes_canvas_id());
             let _ = nodes_view.show(ui);
+
+            if backspace_pressed {
+                let selected = get_selected_nodes(main_nodes_canvas_id(), ui.ctx());
+                if !selected.is_empty() {
+                    let removed = ed.remove_view_nodes(selected);
+                    if removed > 0 {
+                        ui.ctx().request_repaint();
+                    }
+                }
+            }
+
             let changes = ed.take_graph_changes();
             self.last_graph_changes = format_graph_changes(&changes);
         });

@@ -193,6 +193,46 @@ impl<N, E> NodesEditor<N, E> {
         id
     }
 
+    /// Remove nodes by their **view** ids (i.e. `NodeGraph` ids), keeping the headless [`Graph`]
+    /// and the view graph in sync.
+    ///
+    /// Returns how many nodes were actually removed.
+    ///
+    /// This is the recommended way for UI code to delete the current selection, since selection
+    /// comes from the canvas in view-id space.
+    pub fn remove_view_nodes(
+        &mut self,
+        view_nodes: impl IntoIterator<Item = ViewNodeId>,
+    ) -> usize {
+        let mut unique: HashSet<ViewNodeId> = HashSet::new();
+        unique.extend(view_nodes);
+
+        let mut removed = 0usize;
+        for view_id in unique {
+            let Some(core_id) = self.view_to_core.get(&view_id).copied() else {
+                continue;
+            };
+            if !self.node_graph.contains_node(view_id) {
+                continue;
+            }
+
+            let _ = self.node_graph.try_remove_node(view_id);
+            let _ = self.graph.remove_node(core_id);
+
+            self.view_to_core.remove(&view_id);
+            self.core_to_view.remove(&core_id);
+
+            removed += 1;
+        }
+
+        if removed > 0 {
+            self.pending_changes.topology_changed = true;
+            self.pending_changes.payload_or_layout_changed = true;
+        }
+
+        removed
+    }
+
     /// Connect output pin → input pin in both stores.
     pub fn connect_pins(
         &mut self,
