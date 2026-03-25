@@ -17,7 +17,20 @@ use super::nodes_engine::{
         print_graph_menu_string_clicked,
     },
 };
+use crate::graph_lib::PinType;
 use crate::{Layout2d, NodeData, NodesEditor};
+
+/// Pin types for the headless [`crate::Graph`] for each [`DefaultNode`] kind (view pin counts stay in sync via [`NodeGraphViewer`]).
+#[must_use]
+pub fn pin_types_for_default_node(node: &DefaultNode) -> (&'static [PinType], &'static [PinType]) {
+    match node {
+        DefaultNode::Button => (&[], &[PinType::Bang]),
+        DefaultNode::Int(_) => (&[], &[PinType::Int]),
+        DefaultNode::Str(_) => (&[], &[PinType::Symbol]),
+        DefaultNode::Float(_) => (&[], &[PinType::Float]),
+        DefaultNode::Sink => (&[PinType::Any], &[]),
+    }
+}
 
 /// Preset node kinds shipped with **egui-nodes** (Button, Int, String, Float, Sink).
 ///
@@ -46,8 +59,6 @@ pub struct DefaultNodeViewer {
 pub struct DefaultNodeSpawnRequest {
     pub node: DefaultNode,
     pub layout: Layout2d,
-    pub inputs: usize,
-    pub outputs: usize,
 }
 
 impl DefaultNodeViewer {
@@ -166,8 +177,6 @@ impl NodeGraphViewer<NodeData<DefaultNode>> for DefaultNodeViewer {
             self.pending_spawns.borrow_mut().push(DefaultNodeSpawnRequest {
                 node: DefaultNode::Button,
                 layout: Layout2d::new(pos.x, pos.y),
-                inputs: 0,
-                outputs: 1,
             });
             ui.close();
         }
@@ -177,8 +186,6 @@ impl NodeGraphViewer<NodeData<DefaultNode>> for DefaultNodeViewer {
             self.pending_spawns.borrow_mut().push(DefaultNodeSpawnRequest {
                 node: DefaultNode::Int(0),
                 layout: Layout2d::new(pos.x, pos.y),
-                inputs: 0,
-                outputs: 1,
             });
             ui.close();
         }
@@ -188,8 +195,6 @@ impl NodeGraphViewer<NodeData<DefaultNode>> for DefaultNodeViewer {
             self.pending_spawns.borrow_mut().push(DefaultNodeSpawnRequest {
                 node: DefaultNode::Str(String::new()),
                 layout: Layout2d::new(pos.x, pos.y),
-                inputs: 0,
-                outputs: 1,
             });
             ui.close();
         }
@@ -199,8 +204,6 @@ impl NodeGraphViewer<NodeData<DefaultNode>> for DefaultNodeViewer {
             self.pending_spawns.borrow_mut().push(DefaultNodeSpawnRequest {
                 node: DefaultNode::Float(0.0),
                 layout: Layout2d::new(pos.x, pos.y),
-                inputs: 0,
-                outputs: 1,
             });
             ui.close();
         }
@@ -210,8 +213,6 @@ impl NodeGraphViewer<NodeData<DefaultNode>> for DefaultNodeViewer {
             self.pending_spawns.borrow_mut().push(DefaultNodeSpawnRequest {
                 node: DefaultNode::Sink,
                 layout: Layout2d::new(pos.x, pos.y),
-                inputs: 1,
-                outputs: 0,
             });
             ui.close();
         }
@@ -227,8 +228,12 @@ impl NodeGraphViewer<NodeData<DefaultNode>> for DefaultNodeViewer {
 
 /// Small sample graph: one Float node connected to a Sink (for demos and tests).
 pub fn seed_default_demo_graph(editor: &mut NodesEditor<DefaultNode, ()>) {
-    let a = editor.insert_node(DefaultNode::Float(1.0), Layout2d::new(40.0, 40.0), 0, 1);
-    let b = editor.insert_node(DefaultNode::Sink, Layout2d::new(280.0, 40.0), 1, 0);
+    let f = DefaultNode::Float(1.0);
+    let s = DefaultNode::Sink;
+    let (fi, fo) = pin_types_for_default_node(&f);
+    let (si, so) = pin_types_for_default_node(&s);
+    let a = editor.insert_node_with_pin_types(f, Layout2d::new(40.0, 40.0), fi, fo);
+    let b = editor.insert_node_with_pin_types(s, Layout2d::new(280.0, 40.0), si, so);
     let out_pin = editor.graph.node(a).unwrap().outputs[0].id;
     let in_pin = editor.graph.node(b).unwrap().inputs[0].id;
     editor

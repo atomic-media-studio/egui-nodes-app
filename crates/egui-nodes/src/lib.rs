@@ -13,7 +13,7 @@ pub mod ui;
 
 pub use graph_lib::{
     EvalContext, Executor, Graph, GraphError, Layout2d, Link, LinkId, Node, NodeEvaluator, NodeId,
-    Pin, PinId, PinKind, Value, compute_topological_order, dependency_graph_is_acyclic,
+    Pin, PinId, PinKind, PinType, Value, compute_topological_order, dependency_graph_is_acyclic,
     gather_inputs_for_node,
 };
 pub use io::{load_graph, save_graph};
@@ -21,8 +21,8 @@ pub use ui::{
     BackgroundStyle, DefaultEdgeStyleHook, DefaultNode, DefaultNodeStyleHook, DefaultNodeViewer,
     EdgeStyleHook, GraphChanges, GridSettings, NodeData, NodeStyleHook, NodesEditor,
     NodesEditorError, NodesShellViewer, NodesStyle, NodesView, NodesViewState, PanZoomState,
-    SelectionState, canvas_style_controls_ui, layout_to_pos2, pos2_to_layout,
-    seed_default_demo_graph,
+    SelectionState, canvas_style_controls_ui, layout_to_pos2, pin_types_for_default_node,
+    pos2_to_layout, seed_default_demo_graph,
 };
 
 /// Re-export the graph crate for `use egui_nodes::graph_lib::…` or version pinning.

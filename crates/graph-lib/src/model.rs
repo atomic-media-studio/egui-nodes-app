@@ -6,6 +6,7 @@ use std::collections::{HashMap, HashSet};
 use crate::error::GraphError;
 use crate::ids::{LinkId, NodeId, PinId};
 use crate::layout::Layout2d;
+use crate::pin_type::PinType;
 
 /// Input vs output port (also stored on each [`Pin`]).
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -22,6 +23,9 @@ pub struct Pin {
     pub id: PinId,
     pub kind: PinKind,
     pub label: String,
+    /// Logical type for [`Graph::connect`] compatibility; [`PinType::Any`] accepts any link partner.
+    #[cfg_attr(feature = "serde", serde(default))]
+    pub ty: PinType,
 }
 
 /// One node: labels, domain `data`, editor layout, and typed pins.
@@ -128,14 +132,29 @@ impl<N, E> Graph<N, E> {
     }
 
     /// Add a node with `inputs` / `outputs` pins; labels default to `in0…` / `out0…`.
+    ///
+    /// Every pin is [`PinType::Any`]. Use [`Self::add_node_with_pin_types`] for typed pins.
     pub fn add_node(&mut self, data: N, layout: Layout2d, inputs: usize, outputs: usize) -> NodeId {
+        let in_t: Vec<PinType> = (0..inputs).map(|_| PinType::Any).collect();
+        let out_t: Vec<PinType> = (0..outputs).map(|_| PinType::Any).collect();
+        self.add_node_with_pin_types(data, layout, &in_t, &out_t)
+    }
+
+    /// Add a node; `input_types.len()` / `output_types.len()` determine pin counts and types.
+    pub fn add_node_with_pin_types(
+        &mut self,
+        data: N,
+        layout: Layout2d,
+        input_types: &[PinType],
+        output_types: &[PinType],
+    ) -> NodeId {
         let Some(id) = self.alloc_node_id() else {
             panic!("exhausted NodeId space");
         };
         let label = format!("Node {}", id.get());
-        let mut in_pins = Vec::with_capacity(inputs);
-        let mut out_pins = Vec::with_capacity(outputs);
-        for i in 0..inputs {
+        let mut in_pins = Vec::with_capacity(input_types.len());
+        let mut out_pins = Vec::with_capacity(output_types.len());
+        for (i, &ty) in input_types.iter().enumerate() {
             let Some(pid) = self.alloc_pin_id() else {
                 panic!("exhausted PinId space");
             };
@@ -144,9 +163,10 @@ impl<N, E> Graph<N, E> {
                 id: pid,
                 kind: PinKind::Input,
                 label: format!("in{i}"),
+                ty,
             });
         }
-        for i in 0..outputs {
+        for (i, &ty) in output_types.iter().enumerate() {
             let Some(pid) = self.alloc_pin_id() else {
                 panic!("exhausted PinId space");
             };
@@ -155,6 +175,7 @@ impl<N, E> Graph<N, E> {
                 id: pid,
                 kind: PinKind::Output,
                 label: format!("out{i}"),
+                ty,
             });
         }
         let idx = self.nodes.len();
@@ -193,6 +214,17 @@ impl<N, E> Graph<N, E> {
             .map(|&(n, i, k)| (n, i, matches!(k, PinKind::Output)))
     }
 
+    /// Logical [`PinType`] for `pin`, if it exists on the graph.
+    pub fn pin_type(&self, pin: PinId) -> Option<PinType> {
+        let (nid, idx, is_out) = self.pin_port(pin)?;
+        let node = self.node(nid)?;
+        if is_out {
+            node.outputs.get(idx).map(|p| p.ty)
+        } else {
+            node.inputs.get(idx).map(|p| p.ty)
+        }
+    }
+
     /// Rebuilds [`Graph::incoming`] and [`Graph::link_set`] from [`Graph::links`]. Call after
     /// deserializing graphs that omitted derived fields, or if links were edited without going
     /// through [`Graph::connect`] / [`Graph::disconnect_link`].
@@ -228,6 +260,19 @@ impl<N, E> Graph<N, E> {
                     Ok(())
                 }
             })?;
+
+        let from_ty = self
+            .pin_type(from)
+            .ok_or(GraphError::UnknownPin(from))?;
+        let to_ty = self.pin_type(to).ok_or(GraphError::UnknownPin(to))?;
+        if !PinType::compatible_link(from_ty, to_ty) {
+            return Err(GraphError::PinTypeMismatch {
+                from,
+                to,
+                from_ty,
+                to_ty,
+            });
+        }
 
         if self.link_set.contains(&(from, to)) {
             return Err(GraphError::DuplicateLink { from, to });
@@ -331,6 +376,29 @@ mod tests {
             g.connect(out_b, in_c, ()),
             Err(GraphError::InputPinOccupied { to: in_c })
         );
+    }
+
+    #[test]
+    fn connect_rejects_incompatible_pin_types() {
+        let mut g = Graph::<(), ()>::new();
+        let a = g.add_node_with_pin_types((), Layout2d::default(), &[], &[PinType::Float]);
+        let b = g.add_node_with_pin_types((), Layout2d::default(), &[PinType::Int], &[]);
+        let oa = g.node(a).unwrap().outputs[0].id;
+        let ib = g.node(b).unwrap().inputs[0].id;
+        assert!(matches!(
+            g.connect(oa, ib, ()),
+            Err(GraphError::PinTypeMismatch { .. })
+        ));
+    }
+
+    #[test]
+    fn connect_accepts_float_to_any_input() {
+        let mut g = Graph::<(), ()>::new();
+        let a = g.add_node_with_pin_types((), Layout2d::default(), &[], &[PinType::Float]);
+        let b = g.add_node_with_pin_types((), Layout2d::default(), &[PinType::Any], &[]);
+        let oa = g.node(a).unwrap().outputs[0].id;
+        let ib = g.node(b).unwrap().inputs[0].id;
+        g.connect(oa, ib, ()).unwrap();
     }
 
     #[test]

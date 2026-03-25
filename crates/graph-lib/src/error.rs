@@ -1,6 +1,7 @@
 use core::fmt;
 
 use crate::ids::{LinkId, NodeId, PinId};
+use crate::pin_type::PinType;
 
 /// Headless graph errors (no UI).
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -23,6 +24,12 @@ pub enum GraphError {
         to: PinId,
     },
     SelfLoop,
+    PinTypeMismatch {
+        from: PinId,
+        to: PinId,
+        from_ty: PinType,
+        to_ty: PinType,
+    },
 }
 
 impl fmt::Display for GraphError {
@@ -37,6 +44,7 @@ impl fmt::Display for GraphError {
             Self::DuplicateLink { .. } => write!(f, "duplicate link"),
             Self::InputPinOccupied { .. } => write!(f, "input pin already connected"),
             Self::SelfLoop => write!(f, "cannot link a pin to itself"),
+            Self::PinTypeMismatch { .. } => write!(f, "pin types are not compatible for this link"),
         }
     }
 }

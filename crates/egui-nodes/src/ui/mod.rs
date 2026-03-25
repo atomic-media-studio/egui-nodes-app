@@ -5,7 +5,9 @@ pub mod default_node;
 pub mod editor;
 pub mod nodes_engine;
 pub use canvas_style_panel::canvas_style_controls_ui;
-pub use default_node::{DefaultNode, DefaultNodeViewer, seed_default_demo_graph};
+pub use default_node::{
+    DefaultNode, DefaultNodeViewer, pin_types_for_default_node, seed_default_demo_graph,
+};
 pub use nodes_engine::canvas as nodes_canvas;
 pub mod state;
 pub mod style;

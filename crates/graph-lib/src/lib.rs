@@ -31,6 +31,7 @@ pub mod eval;
 pub mod ids;
 pub mod layout;
 pub mod model;
+pub mod pin_type;
 pub mod serde;
 
 pub use error::GraphError;
@@ -41,3 +42,4 @@ pub use eval::{
 pub use ids::{LinkId, NodeId, PinId};
 pub use layout::Layout2d;
 pub use model::{Graph, Link, Node, Pin, PinKind};
+pub use pin_type::PinType;

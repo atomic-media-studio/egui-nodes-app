@@ -11,7 +11,7 @@ use std::fmt;
 
 use egui::Pos2;
 
-use graph_lib::{Graph, GraphError, Layout2d, LinkId, NodeId, PinId};
+use graph_lib::{Graph, GraphError, Layout2d, LinkId, NodeId, PinId, PinType};
 
 use crate::ui::nodes_engine::{InPinId, NodeGraph, NodeId as ViewNodeId, OutPinId};
 
@@ -164,6 +164,8 @@ impl<N, E> NodesEditor<N, E> {
     }
 
     /// Add a node to the graph and a matching NodeGraph cell.
+    ///
+    /// All pins are [`PinType::Any`]. See [`Self::insert_node_with_pin_types`] for typed ports.
     pub fn insert_node(
         &mut self,
         data: N,
@@ -174,7 +176,30 @@ impl<N, E> NodesEditor<N, E> {
     where
         N: Clone,
     {
-        let id = self.graph.add_node(data.clone(), layout, inputs, outputs);
+        let mut in_t = Vec::with_capacity(inputs);
+        in_t.resize(inputs, PinType::Any);
+        let mut out_t = Vec::with_capacity(outputs);
+        out_t.resize(outputs, PinType::Any);
+        self.insert_node_with_pin_types(data, layout, &in_t, &out_t)
+    }
+
+    /// Add a node with explicit per-pin types on the headless [`Graph`] (pin counts follow slice lengths).
+    pub fn insert_node_with_pin_types(
+        &mut self,
+        data: N,
+        layout: Layout2d,
+        input_types: &[PinType],
+        output_types: &[PinType],
+    ) -> NodeId
+    where
+        N: Clone,
+    {
+        let id = self.graph.add_node_with_pin_types(
+            data.clone(),
+            layout,
+            input_types,
+            output_types,
+        );
         let pos = layout_to_pos2(layout);
         let collapsed = self.graph.node(id).unwrap().collapsed;
         let payload = NodeData {

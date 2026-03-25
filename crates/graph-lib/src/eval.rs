@@ -2,6 +2,7 @@
 
 use std::collections::{HashMap, HashSet, VecDeque};
 use std::marker::PhantomData;
+use std::sync::Arc;
 
 use crate::ids::{NodeId, PinId};
 use crate::model::Graph;
@@ -11,12 +12,18 @@ pub trait EvalContext {}
 
 impl EvalContext for () {}
 
-/// Simple value enum; extend with buffers, matrices, etc. as needed.
-#[derive(Debug, Clone)]
+/// Message-style values for dataflow (see also [`crate::PinType`] for port compatibility).
+#[derive(Debug, Clone, PartialEq)]
 pub enum Value {
+    /// Trigger with no payload (cf. Max-style bang).
+    Bang,
     Bool(bool),
     Int(i64),
     Float(f64),
+    /// Short identifier or string message (cf. Max-style symbol).
+    Symbol(Arc<str>),
+    /// Ordered list of nested values.
+    List(Vec<Value>),
 }
 
 /// Node evaluation for dataflow graphs.

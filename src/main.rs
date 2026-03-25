@@ -7,7 +7,8 @@ use std::rc::Rc;
 use eframe::egui;
 use egui_nodes::{
     DefaultNode, DefaultNodeViewer, GraphChanges, NodeData, NodesEditor, NodesShellViewer,
-    NodesStyle, NodesView, NodesViewState, canvas_style_controls_ui, seed_default_demo_graph,
+    NodesStyle, NodesView, NodesViewState, canvas_style_controls_ui, pin_types_for_default_node,
+    seed_default_demo_graph,
 };
 use egui_nodes::nodes_engine::canvas::get_selected_nodes;
 use egui_nodes::nodes_engine::{NodeGraph, NodeId};
@@ -204,7 +205,8 @@ impl eframe::App for TemplateApp {
 
             // Apply queued node spawns requested by the context menu.
             for req in self.viewer.inner.take_pending_spawns() {
-                ed.insert_node(req.node, req.layout, req.inputs, req.outputs);
+                let (ins, outs) = pin_types_for_default_node(&req.node);
+                ed.insert_node_with_pin_types(req.node, req.layout, ins, outs);
                 ui.ctx().request_repaint();
             }
 
