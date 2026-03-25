@@ -27,3 +27,4 @@
 - [x] Wire sampling: resilient `sample_bezier`; removed dead commented code.
 - [x] Default editor/canvas styling (`NodesStyle::with_editor_canvas_defaults`) and side-panel live canvas controls.
 - [x] Canvas/grid, background pattern, selection UX (marquee without shift, consistent pin redraw).
+
