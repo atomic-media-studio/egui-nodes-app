@@ -142,7 +142,7 @@ impl NodeGraphViewer<NodeData<DefaultNode>> for DefaultNodeViewer {
                 ui.add(egui::DragValue::new(value));
             }
             DefaultNode::Str(value) => {
-                let size = egui::vec2(100.0, ui.spacing().interact_size.y);
+                let size = egui::vec2(60.0, ui.spacing().interact_size.y);
                 ui.add_sized(size, egui::TextEdit::singleline(value));
             }
             DefaultNode::Float(value) => {

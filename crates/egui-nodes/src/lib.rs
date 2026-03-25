@@ -6,7 +6,7 @@
 //! - **This crate** — [`NodesEditor`] / [`NodesView`], [`NodeGraph`](crate::ui::nodes_engine::NodeGraph),
 //!   canvas ([`crate::ui::nodes_engine::canvas`]), and styling. [`NodeData`] maps slab nodes to
 //!   [`graph_lib::NodeId`]. Preset payloads: [`DefaultNode`] and [`DefaultNodeViewer`].
-//! - **[`ui`]** — editor session, shell viewer, and the nodes engine.
+//! - **[`ui`]** — editor session, shell viewer, [`NodesWorkspace`] (multi-tab graphs), and the nodes engine.
 
 pub mod io;
 pub mod ui;
@@ -20,8 +20,8 @@ pub use io::{load_graph, save_graph};
 pub use ui::{
     BackgroundStyle, DefaultEdgeStyleHook, DefaultNode, DefaultNodeStyleHook, DefaultNodeViewer,
     EdgeStyleHook, GraphChanges, GridSettings, NodeData, NodeStyleHook, NodesEditor,
-    NodesEditorError, NodesShellViewer, NodesStyle, NodesView, NodesViewState, PanZoomState,
-    SelectionState, canvas_style_controls_ui, layout_to_pos2, pin_types_for_default_node,
+    NodesEditorError, NodesShellViewer, NodesStyle, NodesView, NodesViewState, NodesWorkspace,
+    PanZoomState, SelectionState, canvas_style_controls_ui, layout_to_pos2, pin_types_for_default_node,
     pos2_to_layout, seed_default_demo_graph,
 };
 

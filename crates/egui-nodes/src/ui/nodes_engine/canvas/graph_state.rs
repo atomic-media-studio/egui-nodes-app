@@ -622,6 +622,25 @@ pub fn get_selected_nodes(id: Id, ctx: &Context) -> Vec<NodeId> {
     selected_nodes_for_canvas_id(id, ctx)
 }
 
+/// Copies pan/zoom ([`CanvasState`]'s `to_global`) from `from_canvas` to `to_canvas` when the source
+/// has persisted data; does not copy selection or draw order. Clears in-progress wires and marquee
+/// on the written payload so the new canvas starts clean.
+pub fn seed_canvas_view_from(ctx: &Context, from_canvas: Id, to_canvas: Id) {
+    if from_canvas == to_canvas {
+        return;
+    }
+    let Some(data) = CanvasStateData::load(ctx, from_canvas) else {
+        return;
+    };
+    CanvasStateData {
+        to_global: data.to_global,
+        new_wires: None,
+        new_wires_menu: false,
+        rect_selection: None,
+    }
+    .save(ctx, to_canvas);
+}
+
 #[inline]
 pub(crate) fn selected_nodes_for_canvas_id(canvas_id: Id, ctx: &Context) -> Vec<NodeId> {
     ctx.data(|d| d.get_temp::<SelectedNodes>(canvas_id).unwrap_or_default().0)

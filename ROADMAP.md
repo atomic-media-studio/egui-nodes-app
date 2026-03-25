@@ -2,7 +2,6 @@
 
 ## Ongoing
 
-- [ ] Add multiple tabs on the node viewer
 - [ ] `graph-lib` `eval.rs`: optional shared `Buffer` (e.g. `Arc<[f32]>`) on `Value` when you need block/sample data — not required until you touch DSP.
 - [ ] `graph-lib`: `NodeBehavior` (or similar) trait for headless semantics; migrate `DefaultNode` in `egui-nodes` to implement it.
 - [ ] `egui-nodes`: `NodeRegistry` driving the graph context menu (replace hardcoded spawn list + scattered `graph_menu` labels).
@@ -14,6 +13,8 @@
 
 ## Completed
 
+- [x] `egui-nodes`: `NodesWorkspace` — tab strip (`+` new tab), one `NodesEditor` + `NodesView` per tab, canvas id `root_id.with(("egui-nodes-tab", key))`; demo uses it for central panel, inspector, spawns, Backspace on active tab.
+- [x] `egui-nodes` graph tabs polish: stable `tab_key` + `active_tab_key` / `tab_key_at` / `tab_canvas_id_at`; `seed_canvas_view_from` so new tabs inherit first tab pan/zoom; tab strip uses neutral gray selection (label matches inactive text).
 - [x] `graph-lib`: `PinType` (`pin_type.rs`), `Pin::ty` with serde default; `Graph::add_node_with_pin_types`; `Graph::connect` rejects incompatible types (`PinTypeMismatch`); wildcard `Any`; `NodesEditor::insert_node_with_pin_types`; `pin_types_for_default_node` + typed demo seed/spawns (`Float` → `Any` sink).
 - [x] `graph-lib` `eval.rs`: `Value` adds `Bang`, `Symbol(Arc<str>)`, `List(Vec<Value>)`; keeps `Bool` / `Int` / `Float`.
 - [x] Three-crate workspace: headless `graph-lib`, UI `egui-nodes`, demo app (`default-members` = app).
