@@ -34,29 +34,40 @@ pub enum DefaultNode {
 
 /// [`NodeGraphViewer`] for [`DefaultNode`]: titles, pins, body widgets, and the empty-canvas graph menu.
 ///
-/// Holds a shared [`NodesEditor`] so the graph menu can [`NodesEditor::insert_node`], and an optional
-/// `last_menu_spawn` string for UI that shows which type was spawned last.
+/// The graph menu queues spawn requests which you can apply after `NodesView::show` returns
+/// (avoids nested `RefCell` borrows when the menu is clicked while the editor is already mutably
+/// borrowed by the canvas).
 pub struct DefaultNodeViewer {
-    editor: Rc<RefCell<NodesEditor<DefaultNode, ()>>>,
     last_menu_spawn: Rc<RefCell<String>>,
+    pending_spawns: Rc<RefCell<Vec<DefaultNodeSpawnRequest>>>,
+}
+
+#[derive(Clone)]
+pub struct DefaultNodeSpawnRequest {
+    pub node: DefaultNode,
+    pub layout: Layout2d,
+    pub inputs: usize,
+    pub outputs: usize,
 }
 
 impl DefaultNodeViewer {
     /// `last_menu_spawn` is cleared and updated whenever a graph-menu entry spawns a node.
     #[must_use]
-    pub fn new(
-        editor: Rc<RefCell<NodesEditor<DefaultNode, ()>>>,
-        last_menu_spawn: Rc<RefCell<String>>,
-    ) -> Self {
+    pub fn new(last_menu_spawn: Rc<RefCell<String>>) -> Self {
         Self {
-            editor,
             last_menu_spawn,
+            pending_spawns: Rc::new(RefCell::new(Vec::new())),
         }
     }
 
     fn remember_last_menu_spawn(&self, name: &'static str) {
         self.last_menu_spawn.borrow_mut().clear();
         self.last_menu_spawn.borrow_mut().push_str(name);
+    }
+
+    /// Drain queued spawn requests recorded by the context menu.
+    pub fn take_pending_spawns(&mut self) -> Vec<DefaultNodeSpawnRequest> {
+        std::mem::take(&mut *self.pending_spawns.borrow_mut())
     }
 }
 
@@ -120,7 +131,8 @@ impl NodeGraphViewer<NodeData<DefaultNode>> for DefaultNodeViewer {
                 ui.add(egui::DragValue::new(value));
             }
             DefaultNode::Str(value) => {
-                ui.text_edit_singleline(value);
+                let size = egui::vec2(100.0, ui.spacing().interact_size.y);
+                ui.add_sized(size, egui::TextEdit::singleline(value));
             }
             DefaultNode::Float(value) => {
                 ui.add(egui::DragValue::new(value).speed(0.1));
@@ -151,36 +163,56 @@ impl NodeGraphViewer<NodeData<DefaultNode>> for DefaultNodeViewer {
         if ui.button("Button").clicked() {
             print_graph_menu_button_clicked();
             self.remember_last_menu_spawn("Button");
-            let mut e = self.editor.borrow_mut();
-            e.insert_node(DefaultNode::Button, Layout2d::new(pos.x, pos.y), 0, 1);
+            self.pending_spawns.borrow_mut().push(DefaultNodeSpawnRequest {
+                node: DefaultNode::Button,
+                layout: Layout2d::new(pos.x, pos.y),
+                inputs: 0,
+                outputs: 1,
+            });
             ui.close();
         }
         if ui.button("Int").clicked() {
             print_graph_menu_int_clicked();
             self.remember_last_menu_spawn("Int");
-            let mut e = self.editor.borrow_mut();
-            e.insert_node(DefaultNode::Int(0), Layout2d::new(pos.x, pos.y), 0, 1);
+            self.pending_spawns.borrow_mut().push(DefaultNodeSpawnRequest {
+                node: DefaultNode::Int(0),
+                layout: Layout2d::new(pos.x, pos.y),
+                inputs: 0,
+                outputs: 1,
+            });
             ui.close();
         }
         if ui.button("String").clicked() {
             print_graph_menu_string_clicked();
             self.remember_last_menu_spawn("String");
-            let mut e = self.editor.borrow_mut();
-            e.insert_node(DefaultNode::Str(String::new()), Layout2d::new(pos.x, pos.y), 0, 1);
+            self.pending_spawns.borrow_mut().push(DefaultNodeSpawnRequest {
+                node: DefaultNode::Str(String::new()),
+                layout: Layout2d::new(pos.x, pos.y),
+                inputs: 0,
+                outputs: 1,
+            });
             ui.close();
         }
         if ui.button("Float").clicked() {
             print_graph_menu_float_clicked();
             self.remember_last_menu_spawn("Float");
-            let mut e = self.editor.borrow_mut();
-            e.insert_node(DefaultNode::Float(0.0), Layout2d::new(pos.x, pos.y), 0, 1);
+            self.pending_spawns.borrow_mut().push(DefaultNodeSpawnRequest {
+                node: DefaultNode::Float(0.0),
+                layout: Layout2d::new(pos.x, pos.y),
+                inputs: 0,
+                outputs: 1,
+            });
             ui.close();
         }
         if ui.button("Sink").clicked() {
             print_graph_menu_sink_clicked();
             self.remember_last_menu_spawn("Sink");
-            let mut e = self.editor.borrow_mut();
-            e.insert_node(DefaultNode::Sink, Layout2d::new(pos.x, pos.y), 1, 0);
+            self.pending_spawns.borrow_mut().push(DefaultNodeSpawnRequest {
+                node: DefaultNode::Sink,
+                layout: Layout2d::new(pos.x, pos.y),
+                inputs: 1,
+                outputs: 0,
+            });
             ui.close();
         }
     }

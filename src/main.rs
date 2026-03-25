@@ -44,8 +44,6 @@ struct TemplateApp {
     viewer: NodesShellViewer<DefaultNodeViewer>,
     /// Last drained [`GraphChanges`] summary (for shell UX; drive evaluation from the same signal).
     last_graph_changes: String,
-    /// Last node type spawned from the graph context menu (also printed to stdout).
-    last_menu_spawn: Rc<RefCell<String>>,
 }
 
 impl Default for TemplateApp {
@@ -55,11 +53,9 @@ impl Default for TemplateApp {
 
         let nodes_style = NodesStyle::with_editor_canvas_defaults();
 
+        // The default viewer maintains this (optional) string; the app doesn't display it.
         let last_menu_spawn = Rc::new(RefCell::new(String::new()));
-        let viewer = NodesShellViewer::new(DefaultNodeViewer::new(
-            Rc::clone(&editor),
-            Rc::clone(&last_menu_spawn),
-        ));
+        let viewer = NodesShellViewer::new(DefaultNodeViewer::new(Rc::clone(&last_menu_spawn)));
 
         Self {
             editor,
@@ -67,7 +63,6 @@ impl Default for TemplateApp {
             view_state: NodesViewState::default(),
             viewer,
             last_graph_changes: String::new(),
-            last_menu_spawn,
         }
     }
 }
@@ -185,17 +180,6 @@ impl eframe::App for TemplateApp {
             });
 
         egui::CentralPanel::default().show(ctx, |ui| {
-            ui.horizontal(|ui| {
-                ui.label("Last spawn from graph menu:");
-                let s = self.last_menu_spawn.borrow();
-                if s.is_empty() {
-                    ui.weak("(none yet)");
-                } else {
-                    ui.monospace(s.as_str());
-                }
-            });
-            ui.separator();
-
             let backspace_pressed = ui.input(|i| i.key_pressed(egui::Key::Backspace));
 
             let mut ed = self.editor.borrow_mut();
@@ -216,6 +200,12 @@ impl eframe::App for TemplateApp {
                         ui.ctx().request_repaint();
                     }
                 }
+            }
+
+            // Apply queued node spawns requested by the context menu.
+            for req in self.viewer.inner.take_pending_spawns() {
+                ed.insert_node(req.node, req.layout, req.inputs, req.outputs);
+                ui.ctx().request_repaint();
             }
 
             let changes = ed.take_graph_changes();
