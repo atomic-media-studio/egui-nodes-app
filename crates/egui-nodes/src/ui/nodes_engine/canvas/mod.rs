@@ -47,7 +47,7 @@ pub use self::{
         print_graph_menu_int_clicked, print_graph_menu_sink_clicked, print_graph_menu_string_clicked,
         GRAPH_MENU_DEFAULT_WIDTH,
     },
-    graph_state::get_selected_nodes,
+    graph_state::{get_selected_nodes, seed_canvas_view_from},
     node_viewer::NodeGraphViewer,
     pin::{AnyPins, GraphPin, PinInfo, PinShape, PinWireInfo},
     scene::NodesCanvas,

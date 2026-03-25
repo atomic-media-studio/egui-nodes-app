@@ -12,6 +12,7 @@ pub use nodes_engine::canvas as nodes_canvas;
 pub mod state;
 pub mod style;
 pub mod view;
+pub mod workspace;
 
 pub use editor::shell_viewer::NodesShellViewer;
 pub use editor::{
@@ -23,3 +24,4 @@ pub use style::{
     NodeStyleHook, NodesStyle,
 };
 pub use view::NodesView;
+pub use workspace::NodesWorkspace;

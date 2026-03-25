@@ -6,17 +6,16 @@ use std::rc::Rc;
 
 use eframe::egui;
 use egui_nodes::{
-    DefaultNode, DefaultNodeViewer, GraphChanges, NodeData, NodesEditor, NodesShellViewer,
-    NodesStyle, NodesView, NodesViewState, canvas_style_controls_ui, pin_types_for_default_node,
-    seed_default_demo_graph,
+    DefaultNode, DefaultNodeViewer, GraphChanges, NodeData, NodesShellViewer, NodesStyle, NodesWorkspace,
+    canvas_style_controls_ui, pin_types_for_default_node, seed_default_demo_graph,
 };
 use egui_nodes::nodes_engine::canvas::get_selected_nodes;
 use egui_nodes::nodes_engine::{NodeGraph, NodeId};
 
-/// Must match [`NodesView::with_canvas_id`] for the main graph.
+/// Root id for [`NodesWorkspace`]; each tab gets `root_id.with(("egui-nodes-tab", tab_key))`.
 #[inline]
-fn main_nodes_canvas_id() -> egui::Id {
-    egui::Id::new("main-nodes-canvas-panel")
+fn main_workspace_root_id() -> egui::Id {
+    egui::Id::new("main-nodes-workspace")
 }
 
 fn main() -> eframe::Result<()> {
@@ -39,9 +38,8 @@ fn main() -> eframe::Result<()> {
 }
 
 struct TemplateApp {
-    editor: Rc<RefCell<NodesEditor<DefaultNode, ()>>>,
+    workspace: Rc<RefCell<NodesWorkspace<DefaultNode, ()>>>,
     nodes_style: NodesStyle,
-    view_state: NodesViewState,
     viewer: NodesShellViewer<DefaultNodeViewer>,
     /// Last drained [`GraphChanges`] summary (for shell UX; drive evaluation from the same signal).
     last_graph_changes: String,
@@ -49,8 +47,10 @@ struct TemplateApp {
 
 impl Default for TemplateApp {
     fn default() -> Self {
-        let editor = Rc::new(RefCell::new(NodesEditor::new()));
-        seed_default_demo_graph(&mut editor.borrow_mut());
+        let workspace = Rc::new(RefCell::new(NodesWorkspace::new(main_workspace_root_id())));
+        if let Some(ed) = workspace.borrow_mut().active_editor_mut() {
+            seed_default_demo_graph(ed);
+        }
 
         let nodes_style = NodesStyle::with_editor_canvas_defaults();
 
@@ -59,9 +59,8 @@ impl Default for TemplateApp {
         let viewer = NodesShellViewer::new(DefaultNodeViewer::new(Rc::clone(&last_menu_spawn)));
 
         Self {
-            editor,
+            workspace,
             nodes_style,
-            view_state: NodesViewState::default(),
             viewer,
             last_graph_changes: String::new(),
         }
@@ -89,6 +88,14 @@ fn default_node_payload_line(user: &DefaultNode) -> String {
         DefaultNode::Float(v) => format!("Payload: Float = {v:.6}"),
         DefaultNode::Sink => "Payload: Sink (input only)".to_owned(),
     }
+}
+
+fn inspector_fallback() -> [String; 3] {
+    [
+        "No graph tab.".to_owned(),
+        "—".to_owned(),
+        "—".to_owned(),
+    ]
 }
 
 /// Three lines for the Node Inspector (selection comes from canvas memory; may trail by one frame).
@@ -166,9 +173,15 @@ impl eframe::App for TemplateApp {
                 ui.separator();
                 ui.heading("Node Inspector");
                 {
-                    let selected = get_selected_nodes(main_nodes_canvas_id(), ui.ctx());
-                    let ed = self.editor.borrow();
-                    let lines = node_inspector_lines(&selected, &ed.node_graph);
+                    let ws = self.workspace.borrow();
+                    let lines = if let (Some(cid), Some(ed)) =
+                        (ws.active_canvas_id(), ws.active_editor())
+                    {
+                        let selected = get_selected_nodes(cid, ui.ctx());
+                        node_inspector_lines(&selected, &ed.node_graph)
+                    } else {
+                        inspector_fallback()
+                    };
                     ui.label(&lines[0]);
                     ui.label(&lines[1]);
                     ui.label(&lines[2]);
@@ -183,18 +196,13 @@ impl eframe::App for TemplateApp {
         egui::CentralPanel::default().show(ctx, |ui| {
             let backspace_pressed = ui.input(|i| i.key_pressed(egui::Key::Backspace));
 
-            let mut ed = self.editor.borrow_mut();
-            let mut nodes_view = NodesView::new(
-                &mut *ed,
-                &mut self.view_state,
-                &self.nodes_style,
-                &mut self.viewer,
-            )
-            .with_canvas_id(main_nodes_canvas_id());
-            let _ = nodes_view.show(ui);
+            let mut ws = self.workspace.borrow_mut();
+            let _ = ws.show(ui, &self.nodes_style, &mut self.viewer);
 
-            if backspace_pressed {
-                let selected = get_selected_nodes(main_nodes_canvas_id(), ui.ctx());
+            if backspace_pressed
+                && let (Some(cid), Some(ed)) = (ws.active_canvas_id(), ws.active_editor_mut())
+            {
+                let selected = get_selected_nodes(cid, ui.ctx());
                 if !selected.is_empty() {
                     let removed = ed.remove_view_nodes(selected);
                     if removed > 0 {
@@ -203,14 +211,19 @@ impl eframe::App for TemplateApp {
                 }
             }
 
-            // Apply queued node spawns requested by the context menu.
-            for req in self.viewer.inner.take_pending_spawns() {
-                let (ins, outs) = pin_types_for_default_node(&req.node);
-                ed.insert_node_with_pin_types(req.node, req.layout, ins, outs);
-                ui.ctx().request_repaint();
+            // Apply queued node spawns requested by the context menu (active tab only).
+            if let Some(ed) = ws.active_editor_mut() {
+                for req in self.viewer.inner.take_pending_spawns() {
+                    let (ins, outs) = pin_types_for_default_node(&req.node);
+                    ed.insert_node_with_pin_types(req.node, req.layout, ins, outs);
+                    ui.ctx().request_repaint();
+                }
             }
 
-            let changes = ed.take_graph_changes();
+            let changes = ws
+                .active_editor_mut()
+                .map(|ed| ed.take_graph_changes())
+                .unwrap_or_default();
             self.last_graph_changes = format_graph_changes(&changes);
         });
     }
